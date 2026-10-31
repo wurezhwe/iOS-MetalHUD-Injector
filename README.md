@@ -61,9 +61,18 @@ iOS 设置里 **开发者 → 显示图形 HUD** 这个开关只对带 `get-task
 Actions → Build IPA → Run workflow
 ```
 
-构建成功后 `Release IPA` 会自动把产物发到 [Releases](../../releases)，可以直接下载
-`MetalHUDLauncher.ipa`；也可以在单次运行页面下载 `MetalHUDLauncher-ipa` 这个 artifact
-（压缩包里是同一个文件）。
+构建成功后 `Release IPA` 会自动把产物发到 [Releases](../../releases)，tag 就是
+`project.yml` 里的 `MARKETING_VERSION`（当前 **v1.0.0**）：
+
+```
+https://github.com/wurezhwe/iOS-MetalHUD-Injector/releases/latest/download/MetalHUDLauncher.ipa
+```
+
+这个链接永远指向最新版本，可以直接用。也可以在单次运行页面下载
+`MetalHUDLauncher-ipa` 这个 artifact（压缩包里是同一个文件）。
+
+发版时把 `project.yml` 里的 `MARKETING_VERSION` 改一下，下一个成功构建就会
+生成新的版本号 tag；版本号不变时会覆盖同一 release 里的 IPA。
 
 或者在本地有 macOS 时：
 
@@ -151,6 +160,12 @@ iOS 27 起，App 可以反过来扮演"可配对的主机"，让你在设置里�
 **启动报错但应用列表正常**
 部分游戏有反调试保护，会拒绝以调试方式启动，这类应用无法用本工具。
 
+**Probe 显示 `appservice=no`**
+正常。不少系统版本并不在 RSD 里公布 `com.apple.coredevice.appservice`，
+但一定会公布 `com.apple.instruments.dtservicehub`。本工具会按
+DVT → CoreDevice → InstallationProxy 的顺序自动回退，不需要手动切换。
+日志里出现 `DVT application listing failed` 再看到 coredevice 失败才是真问题。
+
 **HUD 不出现**
 先确认目标应用确实用 Metal 渲染（绝大多数游戏和大量普通应用都是）。系统自带应用可能忽略该变量。
 
@@ -171,20 +186,29 @@ iOS 27 起，App 可以反过来扮演"可配对的主机"，让你在设置里�
 │        ▼                                                       │
 │   TLS-PSK + CDTunnel 握手 → 隧道内 RSD (serverRSDPort)          │
 │        │                                                       │
-│        │  3. 连 com.apple.coredevice.appservice                 │
+│        │  3. 按顺序挑一条能用的启动通道                         │
+│        │     a) DVT com.apple.instruments.dtservicehub          │
+│        │        → processcontrol                              │
+│        │        launchSuspendedProcessWithDevicePath:...       │
+│        │     b) CoreDevice com.apple.coredevice.appservice      │
+│        │        → launchapplication                            │
 │        ▼                                                       │
-│   launchapplication(bundleID, environmentVariables:            │
-│                      {MTL_HUD_ENABLED: "1", ...})              │
+│   环境字典 {MTL_HUD_ENABLED: "1", MTL_HUD_SCALE: "0.35", ...}   │
 │        │                                                       │
 │        ▼                                                       │
 │   目标 App 带着 HUD 启动                                        │
 └────────────────────────────────────────────────────────────────┘
 ```
 
+为什么要两条通道：`com.apple.coredevice.appservice` 并不是每个系统版本都
+在 RSD 里公布（实测某台 iPadOS 只公布 63 个服务、其中没有它），而
+`dtservicehub` 几乎总在。两条通道都能带 `environmentVariables`，注入效果一致。
+
 `rust-core` 里对应三个模块：
 
 - `tunnel.rs` — 拨号、pair-verify、隧道、隧道内 RSD 握手
-- `launch.rs` — 列应用、CoreDevice 启动（失败回退 DVT processcontrol）、截图
+- `launch.rs` — 列应用（DVT → coredevice → InstallationProxy）、
+  启动（DVT → coredevice）、截图（coredevice → screenshotr）
 - `pairing.rs` — 设备内的 RPPairing host
 
 ## 目录结构
