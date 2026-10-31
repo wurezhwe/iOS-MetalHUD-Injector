@@ -19,6 +19,12 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     steps:
+      - name: Checkout (for project.yml)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: project.yml
+          sparse-checkout-cone-mode: false
+
       - name: Resolve the source run
         id: src
         env:
@@ -45,50 +51,52 @@ jobs:
              --dir dist
           ls -lh dist
 
-      - name: Read the build metadata
-        id: meta
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read the version
+        id: version
         run: |
           set -euo pipefail
-          SHA="$(gh api "repos/${{ github.repository }}/actions/runs/${{ steps.src.outputs.run_id }}" --jq '.head_sha')"
-          SHORT="$(echo "$SHA" | cut -c1-7)"
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
-          echo "tag=build-$SHORT" >> "$GITHUB_OUTPUT"
-          echo "size=$(stat -c %s dist/MetalHUDLauncher.ipa)" >> "$GITHUB_OUTPUT"
+          VERSION="$(grep -E '^\s+MARKETING_VERSION:' project.yml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')"
+          if [ -z "$VERSION" ]; then
+            echo "error: MARKETING_VERSION not found in project.yml" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "releasing v$VERSION"
 
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.meta.outputs.tag }}
-          SHA: ${{ steps.meta.outputs.sha }}
-          SIZE: ${{ steps.meta.outputs.size }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          RUN_ID: ${{ steps.src.outputs.run_id }}
         run: |
           set -euo pipefail
           NOTES="$(cat <<EOF
-          Unsigned \`MetalHUDLauncher.ipa\` built from \`${SHA:0:7}\`.
+          Unsigned \`MetalHUDLauncher.ipa\`, version ${VERSION}.
 
           Install it with SideStore, AltStore, TrollStore or any signing service —
-          the archive itself carries no certificate or provisioning profile.
+          the archive carries no certificate or provisioning profile.
 
-          **Before launching anything:** run a loopback VPN (LocalDevVPN or the
+          **Before launching anything:** run a loopback VPN (LocalDevVPN, or the
           WireGuard profile SideStore installs), pair from
-          Settings > Privacy & Security > Developer Mode, then pick an app in
-          the launcher.
+          Settings > Privacy & Security > Developer Mode, then pick an app in the
+          launcher.
 
-          Size: $(numfmt --to=iec "$SIZE")
+          Built by workflow run ${RUN_ID}.
           EOF
           )"
 
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/MetalHUDLauncher.ipa \
               --repo "${{ github.repository }}" --clobber
+            printf '%s\n' "$NOTES" > /tmp/notes.md
+            gh release edit "$TAG" --repo "${{ github.repository }}" \
+              --title "Metal HUD Launcher ${VERSION}" --notes-file /tmp/notes.md
           else
             gh release create "$TAG" dist/MetalHUDLauncher.ipa \
               --repo "${{ github.repository }}" \
-              --target "$SHA" \
-              --title "Metal HUD Launcher ${TAG#build-}" \
+              --title "Metal HUD Launcher ${VERSION}" \
               --notes "$NOTES" \
               --latest
           fi
