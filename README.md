@@ -5,6 +5,12 @@
 </p>
 
 <p align="center">
+  <b>简体中文</b> ·
+  <a href="README.en.md">English</a> ·
+  <a href="README.zh-TW.md">繁體中文</a>
+</p>
+
+<p align="center">
   用一台 iPhone/iPad 自己启动 <b>App Store 应用</b> 并注入 <code>MTL_HUD_ENABLED</code>，
   让 Metal 性能 HUD（实时 FPS / 帧时间）显示出来。免 Mac、免 Xcode、不越狱。
 </p>
@@ -255,11 +261,17 @@ DVT → CoreDevice → InstallationProxy 的顺序自动回退，不需要手动
 │   └── Info.plist
 ├── scripts/
 │   ├── build-rust.sh              # 编译 Rust 并打包 xcframework
-│   └── make_icon.py               # 生成图标
+│   ├── make_icon.py               # 生成图标
+│   ├── check_readmes.py           # 校验三份 README 的完整性
+│   └── check_locales.py           # 校验简繁用字不串
+├── README.md                      # 简体中文
+├── README.en.md                   # English
+├── README.zh-TW.md                # 繁體中文
 ├── project.yml                    # XcodeGen
 └── .github/workflows/
     ├── build.yml                  # 构建 IPA
     └── release.yml                # 用 MARKETING_VERSION 发版
+```
 
 ## 兼容性
 

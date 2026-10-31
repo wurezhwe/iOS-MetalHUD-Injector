@@ -38,6 +38,11 @@ jobs:
           swift --version || true
           rustup --version || true
 
+      - name: Check the localized READMEs
+        run: |
+          python3 scripts/check_readmes.py
+          python3 scripts/check_locales.py
+
       - name: Cache cargo registry and build
         uses: actions/cache@v4
         with:
