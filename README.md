@@ -62,7 +62,7 @@ Actions → Build IPA → Run workflow
 ```
 
 构建成功后 `Release IPA` 会自动把产物发到 [Releases](../../releases)，tag 就是
-`project.yml` 里的 `MARKETING_VERSION`（当前 **v1.0.0**）：
+`project.yml` 里的 `MARKETING_VERSION`（当前 **v1.1.0**）：
 
 ```
 https://github.com/wurezhwe/iOS-MetalHUD-Injector/releases/latest/download/MetalHUDLauncher.ipa
@@ -129,13 +129,31 @@ iOS 27 起，App 可以反过来扮演"可配对的主机"，让你在设置里�
 ### 3. 启动带 HUD 的应用
 
 1. 点右上角刷新，读取已安装应用列表；
-2. 搜索目标应用；
+2. 搜索目标应用（支持中文、拼音、首字母，见下）；
 3. 需要的话调整 `Scale` / `Alignment`；
 4. 点播放按钮。
 
 启动成功后回到目标应用就能看到左上角（或你设定的位置）的 HUD。点 **Screenshot** 可以截屏留证。
 
+### 搜索
+
+输入框三种写法都认：
+
+| 输入 | 命中 |
+| --- | --- |
+| `王者荣耀` | 直接匹配中文名 |
+| `wangzherongyao` | 全拼 |
+| `wzry` | 拼音首字母 |
+| `gen` / `com.mojang` | 英文名 / bundle id 子串 |
+
+转换在应用列表加载时**一次性**完成（不是每次按键），输入本身也是防抖的，
+所以几百个应用下打字不会卡顿。
+
 ## 界面
+
+界面使用 iOS 26 的 **Liquid Glass** 材质（`glassEffect`）：卡片、搜索框、
+按钮都是真正的玻璃效果，并会跟随系统的液态玻璃动画。iOS 16–25 上自动回退到
+毛玻璃材质，布局完全一致。
 
 | 区域 | 作用 |
 | --- | --- |
@@ -228,6 +246,8 @@ DVT → CoreDevice → InstallationProxy 的顺序自动回退，不需要手动
 │   ├── MetalHUDApp.swift
 │   ├── ContentView.swift
 │   ├── AppModel.swift
+│   ├── AppSearchIndex.swift       # 搜索索引（拼音 / 首字母，一次性折叠）
+│   ├── GlassKit.swift             # Liquid Glass 组件 + 旧系统回退
 │   ├── Bridge.swift               # FFI 封装
 │   ├── PairingController.swift    # 配对 + Bonjour
 │   ├── NetworkStatus.swift        # 网卡与候选网关
@@ -237,8 +257,9 @@ DVT → CoreDevice → InstallationProxy 的顺序自动回退，不需要手动
 │   ├── build-rust.sh              # 编译 Rust 并打包 xcframework
 │   └── make_icon.py               # 生成图标
 ├── project.yml                    # XcodeGen
-└── .github/workflows/build.yml    # 构建 IPA
-```
+└── .github/workflows/
+    ├── build.yml                  # 构建 IPA
+    └── release.yml                # 用 MARKETING_VERSION 发版
 
 ## 兼容性
 
