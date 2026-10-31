@@ -1,4 +1,4 @@
-name: MetalHUDLauncher
+﻿name: MetalHUDLauncher
 options:
   bundleIdPrefix: com.wurezhwe
   # Floor stays at 16.0 so the IPA still installs on older devices; the Liquid
@@ -11,8 +11,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.2.0"
-    CURRENT_PROJECT_VERSION: "3"
+    MARKETING_VERSION: "1.3.0"
+    CURRENT_PROJECT_VERSION: "4"
     TARGETED_DEVICE_FAMILY: "1,2"
     CODE_SIGN_STYLE: Manual
     CODE_SIGNING_ALLOWED: NO

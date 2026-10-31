@@ -68,7 +68,7 @@ Actions → Build IPA → Run workflow
 ```
 
 构建成功后 `Release IPA` 会自动把产物发到 [Releases](../../releases)，tag 就是
-`project.yml` 里的 `MARKETING_VERSION`（当前 **v1.2.0**）：
+`project.yml` 里的 `MARKETING_VERSION`（当前 **v1.3.0**）：
 
 ```
 https://github.com/wurezhwe/iOS-MetalHUD-Injector/releases/latest/download/MetalHUDLauncher.ipa

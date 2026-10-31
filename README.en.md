@@ -78,7 +78,7 @@ Actions → Build IPA → Run workflow
 
 After a successful build, `Release IPA` publishes the artifact to
 [Releases](../../releases); the tag is the `MARKETING_VERSION` from
-`project.yml` (currently **v1.2.0**):
+`project.yml` (currently **v1.3.0**):
 
 ```
 https://github.com/wurezhwe/iOS-MetalHUD-Injector/releases/latest/download/MetalHUDLauncher.ipa
