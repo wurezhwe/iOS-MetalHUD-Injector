@@ -11,21 +11,28 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    headerCard
-                    connectionCard
-                    if model.isPaired {
-                        hudSettingsCard
-                        appsCard
-                    } else {
-                        pairingCard
+            ZStack {
+                Theme.background.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 14) {
+                        headerCard
+                        connectionCard
+                        if model.isPaired {
+                            hudSettingsCard
+                            appsCard
+                        } else {
+                            pairingCard
+                        }
+                        consoleCard
                     }
-                    consoleCard
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 18)
                 }
-                .padding(16)
+                // Dismiss the keyboard when the list is dragged, which is what
+                // makes the search field stop stealing taps while scrolling.
+                .scrollDismissesKeyboard(.interactively)
             }
-            .background(Theme.background.ignoresSafeArea())
             .navigationTitle("Metal HUD")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -53,7 +60,7 @@ struct ContentView: View {
     // MARK: - Header
 
     private var headerCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Image(systemName: "speedometer")
                     .font(.system(size: 26, weight: .semibold))
@@ -73,7 +80,7 @@ struct ContentView: View {
                 }
             }
         }
-        .card()
+        .glassCard()
     }
 
     // MARK: - Connection
@@ -87,45 +94,39 @@ struct ContentView: View {
                     .font(.subheadline.weight(.semibold))
                 Spacer()
                 if model.isPaired {
-                    Button("Forget", role: .destructive) { model.forgetPairing() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                    GlassActionButton(title: "Forget", systemImage: "trash") {
+                        model.forgetPairing()
+                    }
                 }
             }
 
             HStack(spacing: 8) {
                 Text("Gateway").font(.caption).foregroundStyle(.secondary)
                 TextField("10.7.0.1", text: $model.gateway)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
                     .keyboardType(.numbersAndPunctuation)
                     .autocorrectionDisabled()
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 9))
                     .onSubmit { model.pushHosts() }
-                Button("Apply") { model.pushHosts() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                GlassActionButton(title: "Apply") { model.pushHosts() }
             }
 
             HStack(spacing: 8) {
-                Button {
+                GlassActionButton(title: "Probe",
+                                  systemImage: "antenna.radiowaves.left.and.right",
+                                  disabled: !model.isPaired) {
                     model.probe()
-                } label: {
-                    Label("Probe", systemImage: "antenna.radiowaves.left.and.right")
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(!model.isPaired)
-
-                Button {
+                GlassActionButton(title: "Screenshot",
+                                  systemImage: "camera",
+                                  disabled: !model.isPaired) {
                     model.captureScreenshot()
-                } label: {
-                    Label("Screenshot", systemImage: "camera")
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(!model.isPaired)
             }
         }
-        .card()
+        .glassCard()
     }
 
     // MARK: - Pairing
@@ -138,6 +139,7 @@ struct ContentView: View {
             Text("iOS 27 can pair with a host running inside an app. Start the host, then approve the 6-digit PIN in Settings › Privacy & Security › Developer Mode › Pair with MetalHUD.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             if let pin = pairing.pin {
                 HStack {
@@ -145,10 +147,11 @@ struct ContentView: View {
                     Text(pin)
                         .font(.system(.title2, design: .monospaced).weight(.bold))
                         .foregroundStyle(Theme.accent)
+                        .textSelection(.enabled)
                     Spacer()
                 }
                 .padding(10)
-                .background(Theme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                .background(Theme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
             }
 
             Text(pairing.status)
@@ -157,29 +160,22 @@ struct ContentView: View {
 
             HStack(spacing: 8) {
                 if pairing.running {
-                    Button("Cancel") { model.cancelPairing() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                    GlassActionButton(title: "Cancel") { model.cancelPairing() }
                 } else {
-                    Button {
+                    GlassActionButton(title: "Start pairing host",
+                                      systemImage: "bonjour",
+                                      prominent: true) {
                         model.startPairing()
-                    } label: {
-                        Label("Start pairing host", systemImage: "bonjour")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
                 }
 
-                Button {
+                GlassActionButton(title: "Import pairing file",
+                                  systemImage: "square.and.arrow.down") {
                     showingImporter = true
-                } label: {
-                    Label("Import pairing file", systemImage: "square.and.arrow.down")
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
             }
         }
-        .card()
+        .glassCard()
         .fileImporter(
             isPresented: $showingImporter,
             allowedContentTypes: [.data, .propertyList],
@@ -198,12 +194,16 @@ struct ContentView: View {
             Text("Injected environment")
                 .font(.subheadline.weight(.semibold))
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Text("Scale").font(.caption).foregroundStyle(.secondary)
                 TextField("0.35", text: $model.hudScale)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
                     .keyboardType(.decimalPad)
-                    .frame(maxWidth: 90)
+                    .frame(maxWidth: 80)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 9))
+
                 Text("Alignment").font(.caption).foregroundStyle(.secondary)
                 Picker("", selection: $model.hudAlignment) {
                     ForEach(["top-left", "top-right", "bottom-left", "bottom-right"], id: \.self) {
@@ -224,8 +224,9 @@ struct ContentView: View {
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(Theme.accent)
                 .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .card()
+        .glassCard()
     }
 
     // MARK: - Apps
@@ -235,27 +236,36 @@ struct ContentView: View {
             HStack {
                 Text("Installed apps").font(.subheadline.weight(.semibold))
                 Spacer()
-                Text("\(model.filteredApps.count)").font(.caption).foregroundStyle(.secondary)
+                Text("\(model.visibleApps.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
             }
 
-            TextField("Filter by name or bundle id", text: $model.searchText)
-                .textFieldStyle(.roundedBorder)
-                .autocorrectionDisabled()
+            GlassSearchField(text: $model.searchText,
+                             placeholder: "搜索应用 / name / bundle id") {
+                model.commitSearch()
+            }
 
             if model.apps.isEmpty {
                 Text("Tap the refresh button to load the app list over the tunnel.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } else if model.visibleApps.isEmpty {
+                Text("No app matches “\(model.searchQuery)”.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } else {
-                ForEach(model.filteredApps) { app in
-                    AppRow(app: app) { model.launch(app) }
-                    if app.id != model.filteredApps.last?.id {
-                        Divider().opacity(0.25)
+                // Lazy so a long list doesn't build hundreds of rows at once;
+                // the previous plain ForEach rebuilt every row on each keystroke.
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(model.visibleApps) { app in
+                        AppRow(app: app) { model.launch(app) }
+                        Divider().opacity(0.18)
                     }
                 }
             }
         }
-        .card()
+        .glassCard()
     }
 
     // MARK: - Console
@@ -265,18 +275,14 @@ struct ContentView: View {
             HStack {
                 Text("Tunnel log").font(.subheadline.weight(.semibold))
                 Spacer()
-                Button("Copy") {
+                GlassActionButton(title: "Copy") {
                     UIPasteboard.general.string = log.lines.joined(separator: "\n")
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.mini)
-                Button("Clear") { log.clear() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
+                GlassActionButton(title: "Clear") { log.clear() }
             }
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
+                LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(Array(log.lines.enumerated()), id: \.offset) { _, line in
                         Text(line)
                             .font(.system(size: 10, design: .monospaced))
@@ -286,9 +292,9 @@ struct ContentView: View {
                     }
                 }
             }
-            .frame(height: 200)
+            .frame(height: 190)
         }
-        .card()
+        .glassCard()
     }
 }
 
@@ -307,7 +313,7 @@ private struct AppRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: 8)
             if !app.version.isEmpty {
                 Text("v\(app.version)")
                     .font(.caption2)
@@ -316,13 +322,14 @@ private struct AppRow: View {
             Button(action: onLaunch) {
                 Image(systemName: "play.fill")
                     .font(.caption.weight(.bold))
-                    .padding(8)
+                    .frame(width: 30, height: 30)
                     .background(Theme.accent.opacity(0.18), in: Circle())
             }
             .buttonStyle(.plain)
             .foregroundStyle(Theme.accent)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 }
 
@@ -335,25 +342,13 @@ private struct Message: Identifiable {
 
 enum Theme {
     static let background = LinearGradient(
-        colors: [Color(red: 0.06, green: 0.07, blue: 0.10),
-                 Color(red: 0.11, green: 0.13, blue: 0.18)],
-        startPoint: .top,
-        endPoint: .bottom
+        colors: [Color(red: 0.04, green: 0.05, blue: 0.08),
+                 Color(red: 0.09, green: 0.11, blue: 0.16),
+                 Color(red: 0.05, green: 0.06, blue: 0.10)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
     )
     static let accent = Color(red: 0.369, green: 0.886, blue: 1.0)
     static let good = Color(red: 0.42, green: 0.86, blue: 0.55)
     static let warn = Color(red: 1.0, green: 0.69, blue: 0.32)
-}
-
-private extension View {
-    func card() -> some View {
-        self
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
-    }
 }

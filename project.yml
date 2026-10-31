@@ -1,6 +1,9 @@
 name: MetalHUDLauncher
 options:
   bundleIdPrefix: com.wurezhwe
+  # Floor stays at 16.0 so the IPA still installs on older devices; the Liquid
+  # Glass APIs are behind #available(iOS 26) and the build itself uses the
+  # iOS 26 SDK.
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
@@ -8,8 +11,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.1.0"
+    CURRENT_PROJECT_VERSION: "2"
     TARGETED_DEVICE_FAMILY: "1,2"
     CODE_SIGN_STYLE: Manual
     CODE_SIGNING_ALLOWED: NO
@@ -17,6 +20,9 @@ settings:
     CODE_SIGN_IDENTITY: ""
     ENABLE_BITCODE: NO
     SWIFT_OPTIMIZATION_LEVEL: "-O"
+    # Build against the newest SDK the runner has; runtime checks guard the
+    # newer APIs so the 16.0 deployment target is still honoured.
+    SDKROOT: iphoneos
 
 targets:
   MetalHUDLauncher:

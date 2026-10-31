@@ -14,7 +14,6 @@ final class AppModel: ObservableObject {
 
     @Published var phase: Phase = .idle
     @Published var apps: [InstalledApp] = []
-    @Published var searchText: String = ""
     @Published var gateway: String = "10.7.0.1"
     @Published var hudScale: String = "0.35"
     @Published var hudAlignment: String = "top-right"
@@ -23,7 +22,22 @@ final class AppModel: ObservableObject {
     @Published var lastMessage: String?
     @Published var lastScreenshot: URL?
 
+    /// Raw text from the search field. Kept separate from `searchQuery` so that
+    /// keystrokes don't drive a full re-filter on every character.
+    @Published var searchText: String = "" {
+        didSet { searchTextDidChange() }
+    }
+
+    /// The debounced query actually used for filtering.
+    @Published private(set) var searchQuery: String = ""
+    /// Filtered results, recomputed only when the query or the app list changes.
+    @Published private(set) var visibleApps: [InstalledApp] = []
+
     private let pairing = PairingController.shared
+    private var searchIndex = AppSearchIndex(apps: [])
+    private var searchDebounce: Task<Void, Never>?
+    /// Bumped on every keystroke so a stale debounce task can't publish.
+    private var searchGeneration: UInt64 = 0
 
     // MARK: - Derived state
 
@@ -34,13 +48,59 @@ final class AppModel: ObservableObject {
         return pairing.running ? pairing.status : "Not paired yet"
     }
 
-    var filteredApps: [InstalledApp] {
-        let needle = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return apps }
-        return apps.filter {
-            $0.name.localizedCaseInsensitiveContains(needle)
-                || $0.bundleId.localizedCaseInsensitiveContains(needle)
+    var filteredApps: [InstalledApp] { visibleApps }
+
+    /// Coalesce keystrokes: only the last edit within the window re-filters.
+    private func searchTextDidChange() {
+        searchDebounce?.cancel()
+        let pending = searchText
+        searchGeneration &+= 1
+        let generation = searchGeneration
+
+        // An empty field should clear instantly; there is nothing to compute.
+        guard !pending.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            searchDebounce = nil
+            applySearch(query: "", immediate: true)
+            return
         }
+
+        searchDebounce = Task { [weak self] in
+            // 120 ms is short enough to feel live and long enough that a fast
+            // typist only pays for one pass instead of one per character.
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled, let self else { return }
+            // A newer keystroke may have started its own task while this one
+            // was sleeping; only the newest generation may publish results.
+            guard self.searchGeneration == generation else { return }
+            self.applySearch(query: pending, immediate: false)
+        }
+    }
+
+    private func applySearch(query: String, immediate: Bool) {
+        searchQuery = query
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            visibleApps = apps
+            return
+        }
+        // Runs on the main actor; the index precomputed its keys, so this is a
+        // handful of `String.contains` calls per app.
+        _ = immediate
+        visibleApps = searchIndex.filtered(by: trimmed)
+    }
+
+    /// Apply the current text immediately, skipping the debounce. Wired to the
+    /// keyboard's Search key so pressing it never feels laggy.
+    func commitSearch() {
+        searchDebounce?.cancel()
+        searchDebounce = nil
+        applySearch(query: searchText, immediate: true)
+    }
+
+    /// Rebuild the folded index and the visible slice in one go.
+    private func rebuildIndex() {
+        searchIndex = AppSearchIndex(apps: apps)
+        applySearch(query: searchQuery, immediate: true)
     }
 
     /// The environment we hand to the target process.
@@ -115,6 +175,7 @@ final class AppModel: ObservableObject {
     func forgetPairing() {
         PairingController.deletePairingFile()
         apps = []
+        rebuildIndex()
         Bridge.clearRoute()
         objectWillChange.send()
         LogCenter.shared.append("[app] pairing record deleted")
@@ -138,6 +199,7 @@ final class AppModel: ObservableObject {
         switch result {
         case .success(let list):
             apps = list
+            rebuildIndex()
             phase = .ready
             lastMessage = nil
             LogCenter.shared.append("[app] loaded \(list.count) app(s)")

@@ -22,7 +22,9 @@ env:
 jobs:
   build:
     name: Rust + Xcode -> unsigned IPA
-    runs-on: macos-15
+    # macOS 26 ships Xcode 26.6 with the iOS 26 SDK, which is what the
+    # Liquid Glass SwiftUI APIs (glassEffect/GlassEffectContainer) need.
+    runs-on: macos-26
     timeout-minutes: 90
 
     steps:
@@ -32,6 +34,7 @@ jobs:
       - name: Show runner toolchain
         run: |
           xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
           swift --version || true
           rustup --version || true
 
@@ -95,7 +98,18 @@ jobs:
           rm -f  build/Payload/MetalHUDLauncher.app/embedded.mobileprovision
 
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' build/Payload/MetalHUDLauncher.app/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' build/Payload/MetalHUDLauncher.app/Info.plist
           lipo -info build/Payload/MetalHUDLauncher.app/MetalHUDLauncher
+
+          # Prove the Liquid Glass paths really are in the shipped binary.
+          BIN=build/Payload/MetalHUDLauncher.app/MetalHUDLauncher
+          for sym in glassEffect GlassEffectContainer; do
+            if otool -s __TEXT __objc_methname "$BIN" 2>/dev/null | tr -d ' \n' | grep -qi "$sym"; then
+              echo "ok: $sym referenced"
+            else
+              echo "::warning::$sym not found in the binary"
+            fi
+          done
 
           (cd build && zip -qr MetalHUDLauncher.ipa Payload)
           ls -lh build/MetalHUDLauncher.ipa
