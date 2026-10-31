@@ -177,7 +177,7 @@ keystroke), and typing itself is debounced — so a few hundred apps stay smooth
 
 The UI uses iOS 26's **Liquid Glass** material (`glassEffect`): the cards, the
 search field and the buttons are real glass and follow the system's fluid
-animations. On iOS 16–25 it falls back to a frosted material with an identical
+animations. On iOS 16–18 it falls back to a frosted material with an identical
 layout.
 
 | Section | Purpose |
@@ -307,6 +307,11 @@ The three modules in `rust-core`:
 | --- | --- |
 | 27.x | Supported; pair directly from Settings |
 | 18 – 26.x | Supported; import a pairing file (SideStore / LiveContainer / generated on a computer) |
+| 16 – 17.x | Should work with a pairing file you supply, but untested |
+
+> On version numbers: Apple skipped straight from iOS 18 to **iOS 26** (switching
+> to year-based numbering), so **iOS 19–25 do not exist**. The ranges above are
+> 16, 17, 18, then 26 and 27.
 
 ## License
 
