@@ -21,6 +21,7 @@ idevice = { version = "0.1.68", default-features = false, features = [
   "core_device",
   "core_device_proxy",
   "dvt",
+  "application_listing",
   "installation_proxy",
   "screenshotr",
   "usbmuxd",
