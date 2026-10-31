@@ -1,0 +1,36 @@
+[package]
+name = "metalhud_ffi"
+version = "0.1.0"
+edition = "2021"
+description = "C FFI shim that talks to an iOS device over a RemotePairing/RSD tunnel and launches App Store apps with MTL_HUD_ENABLED injected"
+
+[lib]
+name = "metalhud_ffi"
+crate-type = ["staticlib"]
+
+[dependencies]
+# Upstream crate. 0.1.68 already carries the OPACK back-reference fix the device
+# side emits (tag 0xAB when name == model), so no vendored patch is needed.
+idevice = { version = "0.1.68", default-features = false, features = [
+  "aws-lc",
+  "remote_pairing",
+  "tunnel_tcp_stack",
+  "rsd",
+  "tcp",
+  "xpc",
+  "core_device",
+  "core_device_proxy",
+  "installation_proxy",
+  "screenshotr",
+  "usbmuxd",
+] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "fs", "time", "sync"] }
+plist = "1.8"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

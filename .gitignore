@@ -1,0 +1,12 @@
+/.build/
+build/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcuserstate
+DerivedData/
+rust-core/target/
+MetalHUDFFI.xcframework/
+MetalHUDLauncher.xcodeproj/
+.DS_Store
+*.ipa
+Cargo.lock

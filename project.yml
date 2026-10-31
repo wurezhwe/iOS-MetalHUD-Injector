@@ -1,0 +1,46 @@
+name: MetalHUDLauncher
+options:
+  bundleIdPrefix: com.wurezhwe
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGNING_REQUIRED: NO
+    CODE_SIGN_IDENTITY: ""
+    ENABLE_BITCODE: NO
+    SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+targets:
+  MetalHUDLauncher:
+    type: application
+    platform: iOS
+    sources:
+      - path: ios-app
+    dependencies:
+      - framework: MetalHUDFFI.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_NAME: MetalHUDLauncher
+        PRODUCT_BUNDLE_IDENTIFIER: com.wurezhwe.metalhud
+        INFOPLIST_FILE: ios-app/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+        # Both are needed: idevice's TLS stack (aws-lc-rs) and its C++ deps.
+        OTHER_LDFLAGS: "-lc++ -lz"
+
+schemes:
+  MetalHUDLauncher:
+    build:
+      targets:
+        MetalHUDLauncher: all
+    archive:
+      customArchiveName: MetalHUDLauncher

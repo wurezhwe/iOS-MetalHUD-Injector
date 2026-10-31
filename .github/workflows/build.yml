@@ -1,0 +1,118 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build configuration'
+        required: false
+        default: 'Release'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  IPHONEOS_DEPLOYMENT_TARGET: '16.0'
+
+jobs:
+  build:
+    name: Rust + Xcode -> unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show runner toolchain
+        run: |
+          xcodebuild -version
+          swift --version || true
+          rustup --version || true
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust-core/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust-core/Cargo.toml', 'rust-core/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Add iOS target
+        run: rustup target add aarch64-apple-ios
+
+      - name: Build Rust static library
+        run: |
+          chmod +x scripts/build-rust.sh
+          ./scripts/build-rust.sh
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build app (no code signing)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project MetalHUDLauncher.xcodeproj \
+            -scheme MetalHUDLauncher \
+            -configuration "${{ github.event.inputs.configuration || 'Release' }}" \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_ENTITLEMENTS="" \
+            clean build | tee build.log
+
+      - name: Package IPA
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find build/DerivedData/Build/Products -name 'MetalHUDLauncher.app' -type d | head -n 1)"
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "error: MetalHUDLauncher.app not found" >&2
+            exit 1
+          fi
+          echo "app: $APP_PATH"
+
+          rm -rf build/Payload build/MetalHUDLauncher.ipa
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" build/Payload/MetalHUDLauncher.app
+
+          # Strip anything the unsigned build may have left behind.
+          rm -rf build/Payload/MetalHUDLauncher.app/_CodeSignature
+          rm -f  build/Payload/MetalHUDLauncher.app/embedded.mobileprovision
+
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' build/Payload/MetalHUDLauncher.app/Info.plist
+          lipo -info build/Payload/MetalHUDLauncher.app/MetalHUDLauncher
+
+          (cd build && zip -qr MetalHUDLauncher.ipa Payload)
+          ls -lh build/MetalHUDLauncher.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MetalHUDLauncher-ipa
+          path: build/MetalHUDLauncher.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
+          retention-days: 7

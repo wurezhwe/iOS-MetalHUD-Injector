@@ -1,0 +1,4 @@
+module MetalHUDFFI {
+    umbrella header "metalhud.h"
+    export *
+}
