@@ -101,12 +101,13 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' build/Payload/MetalHUDLauncher.app/Info.plist
           lipo -info build/Payload/MetalHUDLauncher.app/MetalHUDLauncher
 
-          # Sanity check: the Liquid Glass call and the pinyin transform are
-          # both in the shipped binary. Swift symbols live in __TEXT (not the
-          # ObjC method-name section), so scan the whole __TEXT segment.
+          # Sanity check: the Liquid Glass call and the pinyin transform made it
+          # into the shipped binary. Swift symbols are not ObjC method names, so
+          # scan the linked symbol table plus the raw __TEXT bytes.
           BIN=build/Payload/MetalHUDLauncher.app/MetalHUDLauncher
           for sym in glassEffect kCFStringTransformMandarinLatin; do
-            if strings -a "$BIN" | grep -q "$sym"; then
+            if nm -pa "$BIN" 2>/dev/null | grep -q "$sym" \
+               || grep -qa "$sym" "$BIN"; then
               echo "ok: $sym present"
             else
               echo "::error::$sym missing from the binary"
