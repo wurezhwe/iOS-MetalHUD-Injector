@@ -23,7 +23,7 @@ final class PairingController: ObservableObject {
 
     private static let altIRKKey = "metalhud.pairing.hostAltIRK"
 
-    private static var storedAltIRK: String {
+    private nonisolated static var storedAltIRK: String {
         get { UserDefaults.standard.string(forKey: altIRKKey) ?? "" }
         set { UserDefaults.standard.set(newValue, forKey: altIRKKey) }
     }
@@ -228,7 +228,7 @@ final class PairingController: ObservableObject {
         netService = nil
     }
 
-    fileprivate static func copyString(_ pointer: UnsafeMutablePointer<CChar>?) -> String {
+    fileprivate nonisolated static func copyString(_ pointer: UnsafeMutablePointer<CChar>?) -> String {
         guard let pointer else { return "" }
         return String(cString: pointer)
     }

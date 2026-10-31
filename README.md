@@ -61,6 +61,10 @@ iOS 设置里 **开发者 → 显示图形 HUD** 这个开关只对带 `get-task
 Actions → Build IPA → Run workflow
 ```
 
+构建成功后 `Release IPA` 会自动把产物发到 [Releases](../../releases)，可以直接下载
+`MetalHUDLauncher.ipa`；也可以在单次运行页面下载 `MetalHUDLauncher-ipa` 这个 artifact
+（压缩包里是同一个文件）。
+
 或者在本地有 macOS 时：
 
 ```bash

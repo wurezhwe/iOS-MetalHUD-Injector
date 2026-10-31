@@ -1,0 +1,94 @@
+name: Release IPA
+
+on:
+  workflow_run:
+    workflows: ["Build IPA"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    name: Publish the built IPA as a release
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Resolve the source run
+        id: src
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RUN_ID="$(gh api "repos/${{ github.repository }}/actions/workflows/build.yml/runs?per_page=1&status=success" \
+                        --jq '.workflow_runs[0].id')"
+          else
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "using run $RUN_ID"
+
+      - name: Download the IPA artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh run download "${{ steps.src.outputs.run_id }}" \
+             --repo "${{ github.repository }}" \
+             --name MetalHUDLauncher-ipa \
+             --dir dist
+          ls -lh dist
+
+      - name: Read the build metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          SHA="$(gh api "repos/${{ github.repository }}/actions/runs/${{ steps.src.outputs.run_id }}" --jq '.head_sha')"
+          SHORT="$(echo "$SHA" | cut -c1-7)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT" >> "$GITHUB_OUTPUT"
+          echo "tag=build-$SHORT" >> "$GITHUB_OUTPUT"
+          echo "size=$(stat -c %s dist/MetalHUDLauncher.ipa)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          SHA: ${{ steps.meta.outputs.sha }}
+          SIZE: ${{ steps.meta.outputs.size }}
+        run: |
+          set -euo pipefail
+          NOTES="$(cat <<EOF
+          Unsigned \`MetalHUDLauncher.ipa\` built from \`${SHA:0:7}\`.
+
+          Install it with SideStore, AltStore, TrollStore or any signing service —
+          the archive itself carries no certificate or provisioning profile.
+
+          **Before launching anything:** run a loopback VPN (LocalDevVPN or the
+          WireGuard profile SideStore installs), pair from
+          Settings > Privacy & Security > Developer Mode, then pick an app in
+          the launcher.
+
+          Size: $(numfmt --to=iec "$SIZE")
+          EOF
+          )"
+
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/MetalHUDLauncher.ipa \
+              --repo "${{ github.repository }}" --clobber
+          else
+            gh release create "$TAG" dist/MetalHUDLauncher.ipa \
+              --repo "${{ github.repository }}" \
+              --target "$SHA" \
+              --title "Metal HUD Launcher ${TAG#build-}" \
+              --notes "$NOTES" \
+              --latest
+          fi

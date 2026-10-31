@@ -40,9 +40,9 @@ enum Bridge {
         }
         let cStrings: [UnsafeMutablePointer<CChar>?] = cleaned.map { strdup($0) }
         defer { cStrings.forEach { free($0) } }
-        var pointers: [UnsafePointer<CChar>?] = cStrings.map { $0.map { UnsafePointer($0) } }
+        let pointers: [UnsafePointer<CChar>?] = cStrings.map { $0.map { UnsafePointer($0) } }
         pointers.withUnsafeBufferPointer { buffer in
-            mh_set_hosts(buffer.baseAddress, buffer.count)
+            _ = mh_set_hosts(buffer.baseAddress, buffer.count)
         }
     }
 
