@@ -56,6 +56,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Test the HUD configuration logic
+        run: |
+          chmod +x scripts/test-hud-config.sh
+          ./scripts/test-hud-config.sh
       - name: Add iOS target
         run: rustup target add aarch64-apple-ios
 
