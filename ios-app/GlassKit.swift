@@ -36,7 +36,7 @@ struct GlassCard: ViewModifier {
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+                        .strokeBorder(Theme.separator, lineWidth: 1)
                 )
         }
     }
@@ -104,7 +104,7 @@ private struct GlassPill: ViewModifier {
         } else {
             content
                 .background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+                .overlay(Capsule().strokeBorder(Theme.separator, lineWidth: 1))
         }
     }
 }
@@ -135,6 +135,8 @@ struct GlassActionButton: View {
             .padding(.vertical, 9)
         }
         .buttonStyle(.plain)
+        // A tinted (prominent) button keeps dark text in both appearances: the
+        // accent fill is bright enough in either mode.
         .foregroundStyle(prominent ? Color.black : Color.primary)
         .modifier(GlassActionSurface(prominent: prominent, tint: tint))
         .opacity(disabled ? 0.45 : 1)
@@ -160,7 +162,7 @@ private struct GlassActionSurface: ViewModifier {
                         shape.fill(.ultraThinMaterial)
                     }
                 }
-                .overlay(shape.strokeBorder(Color.white.opacity(prominent ? 0 : 0.10), lineWidth: 1))
+                .overlay(shape.strokeBorder(Theme.separator, lineWidth: 1))
         }
     }
 

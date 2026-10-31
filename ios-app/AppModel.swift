@@ -16,9 +16,17 @@ final class AppModel: ObservableObject {
     @Published var apps: [InstalledApp] = []
     @Published var gateway: String = "10.7.0.1"
     @Published var hudScale: String = "0.35"
-    @Published var hudAlignment: String = "top-right"
+    @Published var hudAlignment: String = HUDAlignment.topRight.rawValue
     @Published var hudLogEnabled: Bool = false
     @Published var killExisting: Bool = true
+    /// Master switch, mirroring the system's "Show Graphics HUD" toggle. With it
+    /// off the launcher behaves like the normal Home Screen icon: no injection,
+    /// which is the control group when measuring HUD overhead.
+    @Published var hudEnabled: Bool = true
+    /// Filter the list down to apps that look like games.
+    @Published var gamesOnly: Bool = false {
+        didSet { if oldValue != gamesOnly { gamesFilterChanged() } }
+    }
     @Published var lastMessage: String?
     @Published var lastScreenshot: URL?
 
@@ -80,13 +88,19 @@ final class AppModel: ObservableObject {
         searchQuery = query
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            visibleApps = apps
+            visibleApps = applyGameFilter(apps)
             return
         }
         // Runs on the main actor; the index precomputed its keys, so this is a
         // handful of `String.contains` calls per app.
         _ = immediate
-        visibleApps = searchIndex.filtered(by: trimmed)
+        visibleApps = applyGameFilter(searchIndex.filtered(by: trimmed))
+    }
+
+    /// Apply the "only games" switch on top of a result set.
+    private func applyGameFilter(_ input: [InstalledApp]) -> [InstalledApp] {
+        guard gamesOnly else { return input }
+        return input.filter { GameClassifier.isGame($0) }
     }
 
     /// Apply the current text immediately, skipping the debounce. Wired to the
@@ -97,14 +111,34 @@ final class AppModel: ObservableObject {
         applySearch(query: searchText, immediate: true)
     }
 
+    /// Re-run the filter when the *only games* switch flips.
+    func gamesFilterChanged() {
+        applySearch(query: searchQuery, immediate: true)
+    }
+
     /// Rebuild the folded index and the visible slice in one go.
     private func rebuildIndex() {
         searchIndex = AppSearchIndex(apps: apps)
         applySearch(query: searchQuery, immediate: true)
     }
 
+    /// Put every HUD knob back to what Xcode uses by default.
+    func resetHudDefaults() {
+        hudEnabled = true
+        hudScale = "0.35"
+        hudAlignment = HUDAlignment.topRight.rawValue
+        hudLogEnabled = false
+        killExisting = true
+        gamesOnly = false
+        applySearch(query: searchQuery, immediate: true)
+    }
+
     /// The environment we hand to the target process.
     var environment: [String: String] {
+        // With the master switch off we inject nothing at all: the process runs
+        // exactly as it would from the Home Screen. That is the control group.
+        guard hudEnabled else { return [:] }
+
         var env = ["MTL_HUD_ENABLED": "1"]
         let scale = hudScale.trimmingCharacters(in: .whitespacesAndNewlines)
         if !scale.isEmpty { env["MTL_HUD_SCALE"] = scale }
@@ -115,7 +149,9 @@ final class AppModel: ObservableObject {
     }
 
     var environmentSummary: String {
-        environment
+        let env = environment
+        if env.isEmpty { return "—" }
+        return env
             .sorted { $0.key < $1.key }
             .map { "\($0.key)=\($0.value)" }
             .joined(separator: "  ")

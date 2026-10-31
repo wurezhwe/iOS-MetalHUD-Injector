@@ -87,32 +87,80 @@ fn args_dict(args: &[String]) -> Dictionary {
 
 /// List installed applications.
 ///
-/// Three sources, because which services exist depends on the OS build:
-///   1. CoreDevice `appservice` - what Xcode uses on recent releases;
-///   2. the DVT `applicationListing` channel, reached over
-///      `com.apple.instruments.dtservicehub` (advertised on far more devices);
-///   3. InstallationProxy, whose RSD shim is nearly universal.
+/// Which service exists depends on the OS build, so they are tried in order of
+/// how much information they carry:
+///
+///   1. CoreDevice `appservice` - what Xcode uses, returns a real display name;
+///   2. the DVT `applicationListing` channel (`dtservicehub`) - advertised
+///      almost everywhere, but its attribute dictionary often has no
+///      `CFBundleDisplayName`, so names come out as the bundle id;
+///   3. InstallationProxy - nearly universal and *does* carry display names.
+///
+/// Because (2) is frequently the only channel that works, its result is then
+/// enriched with names from (3): a DVT row whose name is just the bundle id gets
+/// replaced by the localised display name. Without that, Chinese apps are
+/// unsearchable - the list only ever contains ASCII bundle ids.
 pub async fn list_apps(pairing_path: &str) -> Result<Vec<AppInfo>, String> {
     let mut link = tunnel::connect(pairing_path).await?;
 
-    let mut out = match list_via_dvt(&mut link).await {
-        Ok(apps) => apps,
-        Err(dvt_error) => {
-            LOG.log(format!("DVT application listing failed: {dvt_error}"));
-            match list_via_core_device(&mut link).await {
-                Ok(apps) => apps,
-                Err(core_error) => {
-                    LOG.log(format!("CoreDevice appservice failed: {core_error}"));
-                    list_via_installation_proxy(&mut link).await?
+    let (mut out, needs_names) = match list_via_core_device(&mut link).await {
+        Ok(apps) => (apps, false),
+        Err(core_error) => {
+            LOG.log(format!("CoreDevice appservice unavailable: {core_error}"));
+            match list_via_dvt(&mut link).await {
+                Ok(apps) => {
+                    // DVT usually has no display name; we will patch them below.
+                    (apps, true)
+                }
+                Err(dvt_error) => {
+                    LOG.log(format!("DVT application listing failed: {dvt_error}"));
+                    (list_via_installation_proxy(&mut link).await?, false)
                 }
             }
         }
     };
 
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    if needs_names {
+        match list_via_installation_proxy(&mut link).await {
+            Ok(proxy_apps) => {
+                let merged = merge_missing_names(&mut out, &proxy_apps);
+                LOG.log(format!("filled in {merged} display name(s) from InstallationProxy"));
+            }
+            Err(e) => LOG.log(format!("could not enrich names: {e}")),
+        }
+    }
+
+    out.sort_by(|a, b| {
+        a.name
+            .to_lowercase()
+            .cmp(&b.name.to_lowercase())
+            .then_with(|| a.bundle_id.cmp(&b.bundle_id))
+    });
     out.dedup_by(|a, b| a.bundle_id == b.bundle_id);
     LOG.log(format!("{} installed app(s)", out.len()));
     Ok(out)
+}
+
+/// Replace placeholder names (bundle ids) with real display names.
+///
+/// Returns how many rows were improved.
+fn merge_missing_names(apps: &mut [AppInfo], named: &[AppInfo]) -> usize {
+    let mut fixed = 0;
+    for app in apps.iter_mut() {
+        if app.name != app.bundle_id && !app.name.is_empty() {
+            continue; // already a real name
+        }
+        if let Some(better) = named.iter().find(|n| n.bundle_id == app.bundle_id) {
+            if !better.name.is_empty() && better.name != better.bundle_id {
+                app.name = better.name.clone();
+                if app.version.is_empty() {
+                    app.version = better.version.clone();
+                }
+                fixed += 1;
+            }
+        }
+    }
+    fixed
 }
 
 async fn list_via_core_device(link: &mut DeviceLink) -> Result<Vec<AppInfo>, String> {
@@ -175,15 +223,16 @@ async fn list_via_dvt(link: &mut DeviceLink) -> Result<Vec<AppInfo>, String> {
             {
                 return None;
             }
-            let name = entry
-                .get("CFBundleDisplayName")
-                .and_then(|v| v.as_string())
-                .or_else(|| entry.get("CFBundleName").and_then(|v| v.as_string()))
-                .unwrap_or(&bundle_id)
-                .to_string();
-            let version = entry
-                .get("CFBundleShortVersionString")
-                .and_then(|v| v.as_string())
+            // DVT puts the human name under several different keys depending on
+            // OS version; try all of them before falling back to the bundle id.
+            let name = ["CFBundleDisplayName", "DisplayName", "CFBundleName", "BundleName"]
+                .iter()
+                .find_map(|key| entry.get(key).and_then(|v| v.as_string()))
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| bundle_id.clone());
+            let version = ["CFBundleShortVersionString", "BundleShortVersion", "CFBundleVersion"]
+                .iter()
+                .find_map(|key| entry.get(key).and_then(|v| v.as_string()))
                 .unwrap_or_default()
                 .to_string();
             Some(AppInfo {
@@ -207,15 +256,14 @@ async fn list_via_installation_proxy(link: &mut DeviceLink) -> Result<Vec<AppInf
         .into_iter()
         .filter_map(|(bundle_id, value)| {
             let info = value.as_dictionary()?;
-            let name = info
-                .get("CFBundleDisplayName")
-                .and_then(|v| v.as_string())
-                .or_else(|| info.get("CFBundleName").and_then(|v| v.as_string()))
-                .unwrap_or(&bundle_id)
-                .to_string();
-            let version = info
-                .get("CFBundleShortVersionString")
-                .and_then(|v| v.as_string())
+            let name = ["CFBundleDisplayName", "CFBundleName", "DisplayName"]
+                .iter()
+                .find_map(|key| info.get(key).and_then(|v| v.as_string()))
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| bundle_id.clone());
+            let version = ["CFBundleShortVersionString", "CFBundleVersion"]
+                .iter()
+                .find_map(|key| info.get(key).and_then(|v| v.as_string()))
                 .unwrap_or_default()
                 .to_string();
             Some(AppInfo {
@@ -314,17 +362,29 @@ async fn launch_via_dvt(link: &mut DeviceLink, options: &LaunchOptions) -> Resul
 
 /// Capture the device screen to `path` (PNG). Used to prove the HUD is visible.
 ///
-/// CoreDevice's screencaptureservice and the older screenshotr shim are both
-/// tried; whichever the device advertises wins.
+/// Two channels exist across OS versions and neither is universal:
+///   * `com.apple.coredevice.screencaptureservice` (CoreDevice, iOS 17+)
+///   * `com.apple.screenshotr.shim.remote` (the legacy DeviceLink service)
+///
+/// If the device advertises neither, say so plainly instead of surfacing a bare
+/// "service not found".
 pub async fn screenshot(pairing_path: &str, path: &str) -> Result<String, String> {
     let mut link = tunnel::connect(pairing_path).await?;
 
-    let bytes = match screenshot_via_core_device(&mut link).await {
-        Ok(bytes) => bytes,
-        Err(core_error) => {
-            LOG.log(format!("screencaptureservice failed: {core_error}"));
-            screenshot_via_screenshotr(&mut link).await?
+    let mut errors: Vec<String> = Vec::new();
+
+    let bytes = if link.has_service("com.apple.coredevice.screencaptureservice") {
+        match screenshot_via_core_device(&mut link).await {
+            Ok(b) => b,
+            Err(e) => {
+                LOG.log(format!("screencaptureservice failed: {e}"));
+                errors.push(e);
+                try_remaining_screenshot_channels(&mut link, &mut errors).await?
+            }
         }
+    } else {
+        errors.push("com.apple.coredevice.screencaptureservice not advertised".into());
+        try_remaining_screenshot_channels(&mut link, &mut errors).await?
     };
 
     tokio::fs::write(path, &bytes)
@@ -333,6 +393,31 @@ pub async fn screenshot(pairing_path: &str, path: &str) -> Result<String, String
 
     LOG.log(format!("screenshot saved to {path} ({} bytes)", bytes.len()));
     Ok(format!("Saved {path} ({} bytes)", bytes.len()))
+}
+
+/// Try the remaining screenshot channels after the primary one failed.
+async fn try_remaining_screenshot_channels(
+    link: &mut DeviceLink,
+    errors: &mut Vec<String>,
+) -> Result<Vec<u8>, String> {
+    if link.has_service("com.apple.screenshotr.shim.remote") {
+        match screenshot_via_screenshotr(link).await {
+            Ok(b) => return Ok(b),
+            Err(e) => {
+                LOG.log(format!("screenshotr failed: {e}"));
+                errors.push(e);
+            }
+        }
+    } else {
+        errors.push("com.apple.screenshotr.shim.remote not advertised".into());
+    }
+
+    Err(format!(
+        "This device advertises no working screenshot service ({}). \
+         Launching apps is unaffected - use the device's own screenshot \
+         shortcut if you need a capture.",
+        errors.join("; ")
+    ))
 }
 
 async fn screenshot_via_core_device(link: &mut DeviceLink) -> Result<Vec<u8>, String> {

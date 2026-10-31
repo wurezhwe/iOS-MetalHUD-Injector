@@ -236,20 +236,31 @@ pub unsafe extern "C" fn mh_probe_device(
         }
         run_async(async move {
             let link = crate::tunnel::connect(&path).await?;
-            let mut names: Vec<String> = link.handshake.services.keys().cloned().collect();
-            names.sort();
-            let has_appservice = names
-                .iter()
-                .any(|n| n == "com.apple.coredevice.appservice");
-            let has_dvt = names
-                .iter()
-                .any(|n| n == "com.apple.instruments.dtservicehub");
+            let names = link.service_names();
+
+            let report = |needle: &str| -> bool {
+                names.iter().any(|n| n == needle)
+            };
+
+            // Log the capability set that actually matters, so a missing
+            // screenshot/launch channel is visible without guessing.
+            logging::log(format!(
+                "[probe] appservice={} dvt={} screencapture={} screenshotr={}",
+                report("com.apple.coredevice.appservice"),
+                report("com.apple.instruments.dtservicehub"),
+                report("com.apple.coredevice.screencaptureservice"),
+                report("com.apple.screenshotr.shim.remote"),
+            ));
+
             Ok(format!(
-                "{{\"host\":{},\"services\":{},\"appService\":{},\"dvt\":{}}}",
+                "{{\"host\":{},\"services\":{},\"appService\":{},\"dvt\":{},\
+                 \"screenCapture\":{},\"screenshotr\":{}}}",
                 json_string(&link.host.to_string()),
                 names.len(),
-                has_appservice,
-                has_dvt
+                report("com.apple.coredevice.appservice"),
+                report("com.apple.instruments.dtservicehub"),
+                report("com.apple.coredevice.screencaptureservice"),
+                report("com.apple.screenshotr.shim.remote"),
             ))
         })
     })

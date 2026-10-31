@@ -129,6 +129,19 @@ impl DeviceLink {
             .await
             .map_err(|e| format!("{}: {e}", T::rsd_service_name()))
     }
+
+    /// Whether the device advertised `name` in its RSD handshake. Saves a round
+    /// trip (and a confusing "service not found") when a service is optional.
+    pub fn has_service(&self, name: &str) -> bool {
+        self.handshake.services.contains_key(name)
+    }
+
+    /// Names of every advertised service, sorted - for the probe/log output.
+    pub fn service_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.handshake.services.keys().cloned().collect();
+        names.sort();
+        names
+    }
 }
 
 /// Establish a tunnel and complete an RSD handshake inside it.
