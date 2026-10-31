@@ -1,36 +1,11 @@
 import Foundation
 
-/// The `MTL_HUD_ALIGNMENT` values Metal understands, with the localised label
-/// for each. Keeping this as an enum (instead of a free-text field) means the
-/// picker can never produce a value Metal will reject.
-enum HUDAlignment: String, CaseIterable, Identifiable {
-    case topLeft = "top-left"
-    case topRight = "top-right"
-    case bottomLeft = "bottom-left"
-    case bottomRight = "bottom-right"
-    case topCenter = "top-center"
-    case bottomCenter = "bottom-center"
-
-    var id: String { rawValue }
-
-    var localizationKey: L10n.Key {
-        switch self {
-        case .topLeft: return .alignTopLeft
-        case .topRight: return .alignTopRight
-        case .bottomLeft: return .alignBottomLeft
-        case .bottomRight: return .alignBottomRight
-        case .topCenter: return .alignTopCenter
-        case .bottomCenter: return .alignBottomCenter
-        }
-    }
-}
-
 /// Heuristic "is this a game?" used by the *only games* filter.
 ///
 /// App Store metadata is not available over RSD, so this leans on the bundle-id
 /// publisher prefixes and display-name keywords that correlate well in practice.
 /// It is deliberately labelled as a filter rather than a classification: being
-/// wrong only hides a row the user can bring back by turning it off.
+/// wrong only hides a row the user can bring back by turning the switch off.
 enum GameClassifier {
 
     private static let idHints = [
@@ -53,20 +28,23 @@ enum GameClassifier {
         "pubg", "call of duty", "clash", "brawl", "clans", "warzone",
         "原神", "崩坏", "王者", "和平精英", "使命召唤", "幻塔", "明日方舟",
         "第五人格", "我的世界", "香肠派对", "光遇", "絕區零", "绝区零",
-        "遊戲", "游戏", "Game",
+        "遊戲", "游戏",
     ]
 
+    /// Bundle-id suffixes that mark an app extension rather than a launchable
+    /// app. These ship inside the parent bundle and would otherwise flood the
+    /// list with rows that cannot be launched.
+    private static let extensionSuffixes = [
+        "Extension", "Widget", "NotificationService", "Broadcast",
+        "ShareExtension", "AppExtension", "Intents", "IntentsUI",
+    ]
+
+    static func isExtension(_ bundleId: String) -> Bool {
+        extensionSuffixes.contains { bundleId.hasSuffix($0) }
+    }
+
     static func isGame(_ app: InstalledApp) -> Bool {
-        // Extensions, widgets and notification services are shipped inside the
-        // same bundle family and would otherwise flood the list.
-        if app.bundleId.hasSuffix("Extension")
-            || app.bundleId.hasSuffix("Widget")
-            || app.bundleId.hasSuffix("NotificationService")
-            || app.bundleId.hasSuffix("Broadcast")
-            || app.bundleId.hasSuffix("ShareExtension")
-        {
-            return false
-        }
+        guard !isExtension(app.bundleId) else { return false }
 
         let id = app.bundleId.lowercased()
         if idHints.contains(where: { id.contains($0) }) { return true }

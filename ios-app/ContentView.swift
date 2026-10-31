@@ -8,6 +8,9 @@ struct ContentView: View {
     @ObservedObject private var languages = LanguageStore.shared
 
     @State private var showingImporter = false
+    /// Disclosure state for the two collapsible HUD sections.
+    @State private var showMetrics = false
+    @State private var showAdvanced = false
 
     private func t(_ key: L10n.Key) -> String { languages.string(key) }
 
@@ -211,70 +214,293 @@ struct ContentView: View {
     /// Mirrors the layout of Xcode's Graphics HUD options: a master switch, the
     /// two placement knobs, then an Advanced disclosure for the rest.
     private var hudSettingsCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
             Text(t(.hudSection))
                 .font(.subheadline.weight(.semibold))
+                .padding(.bottom, 12)
 
-            Toggle(t(.hudEnable), isOn: $model.hudEnabled)
-                .font(.subheadline)
-
-            Divider().overlay(Theme.separator)
-
-            LabeledContent {
-                TextField("0.35", text: $model.hudScale)
-                    .textFieldStyle(.plain)
-                    .multilineTextAlignment(.trailing)
-                    .keyboardType(.decimalPad)
-                    .frame(width: 84)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Theme.fieldBackground, in: RoundedRectangle(cornerRadius: 8))
-            } label: {
-                Text(t(.hudScale)).font(.caption)
-            }
-            .foregroundStyle(.secondary)
-
-            LabeledContent {
-                Picker("", selection: $model.hudAlignment) {
-                    ForEach(HUDAlignment.allCases) { option in
-                        Text(t(option.localizationKey)).tag(option.rawValue)
+            // --- master switch -------------------------------------------
+            Toggle(isOn: $model.hud.enabled) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(t(.hudEnable)).font(.subheadline)
+                    if !model.hud.enabled {
+                        Text(t(.hudEnableFooter))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
-            } label: {
-                Text(t(.hudAlignment)).font(.caption)
             }
-            .foregroundStyle(.secondary)
+            .padding(.bottom, 10)
 
-            DisclosureGroup {
-                VStack(alignment: .leading, spacing: 10) {
-                    Toggle(t(.hudLogEnabled), isOn: $model.hudLogEnabled)
-                        .font(.caption)
-                    Toggle(t(.terminateExisting), isOn: $model.killExisting)
-                        .font(.caption)
+            if model.hud.enabled {
+                rowDivider
+
+                // --- opacity / scale -------------------------------------
+                sliderRow(title: t(.hudOpacity),
+                          value: $model.hud.opacity,
+                          range: 0...1,
+                          format: "%.2f")
+
+                sliderRow(title: t(.hudScale),
+                          value: $model.hud.scale,
+                          range: MetalHUD.scaleRange,
+                          format: "%.2f",
+                          footer: t(.hudScaleFooter))
+
+                rowDivider
+
+                // --- position --------------------------------------------
+                LabeledContent {
+                    Picker("", selection: $model.hud.alignment) {
+                        ForEach(MetalHUD.Alignment.allCases) { option in
+                            Text(t(option.localizationKey)).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                } label: {
+                    Text(t(.hudAlignment)).font(.subheadline)
                 }
-                .padding(.top, 8)
-            } label: {
-                Text(t(.hudAdvanced))
-                    .font(.caption.weight(.medium))
-            }
-            .tint(Theme.accent)
+                .padding(.vertical, 4)
 
-            Text(model.environmentSummary)
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(Theme.accent)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
+                rowDivider
+
+                // --- metrics layout --------------------------------------
+                LabeledContent {
+                    Picker("", selection: $model.hud.layout) {
+                        ForEach(MetalHUD.Layout.allCases) { layout in
+                            Text(t(layout.localizationKey)).tag(layout)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .disabled(!model.hud.customMetrics.isEmpty)
+                } label: {
+                    Text(t(.hudElements)).font(.subheadline)
+                }
+                .padding(.vertical, 4)
+
+                if !model.hud.customMetrics.isEmpty {
+                    Text(t(.hudElementsFooter))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                DisclosureGroup(isExpanded: $showMetrics) {
+                    metricsSelector
+                } label: {
+                    Text(t(.hudElements))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Theme.accent)
+                }
+                .tint(Theme.accent)
+                .padding(.top, 6)
+
+                HStack {
+                    Button(t(.resetMetrics)) { model.resetHudMetrics() }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.accent)
+                    Spacer()
+                }
+                .padding(.top, 4)
+
+                rowDivider
+
+                // --- advanced --------------------------------------------
+                DisclosureGroup(isExpanded: $showAdvanced) {
+                    advancedOptions
+                } label: {
+                    Text(t(.hudAdvanced))
+                        .font(.subheadline)
+                }
+                .tint(Theme.accent)
+                .padding(.vertical, 4)
+            }
+
+            rowDivider
+
+            // --- launch behaviour (always visible) -----------------------
+            Toggle(t(.terminateExisting), isOn: $model.killExisting)
+                .font(.caption)
+                .padding(.top, 8)
+
+            // --- what will actually be injected --------------------------
+            if !model.environmentSummary.isEmpty {
+                Text(model.environmentSummary)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Theme.accent)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 10)
+            }
 
             HStack {
-                GlassActionButton(title: t(.resetDefaults), systemImage: "arrow.counterclockwise") {
+                GlassActionButton(title: t(.resetDefaults),
+                                  systemImage: "arrow.counterclockwise") {
                     model.resetHudDefaults()
                 }
                 Spacer()
             }
+            .padding(.top, 8)
         }
         .glassCard()
+    }
+
+    private var rowDivider: some View {
+        Divider()
+            .overlay(Theme.separator)
+            .padding(.vertical, 6)
+    }
+
+    /// A label + slider + numeric readout, matching the system panel's rows.
+    private func sliderRow(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        format: String,
+        footer: String? = nil
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title).font(.subheadline)
+                Spacer()
+                Text(String(format: format, value.wrappedValue))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: value, in: range)
+                .tint(Theme.accent)
+            if let footer {
+                Text(footer)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    /// Per-metric toggles. Selecting any of them switches the HUD away from a
+    /// named layout onto an explicit `MTL_HUD_ELEMENTS` list.
+    private var metricsSelector: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(MetalHUD.Metric.allCases) { metric in
+                Toggle(isOn: Binding(
+                    get: { model.hud.customMetrics.contains(metric) },
+                    set: { isOn in
+                        if isOn {
+                            model.hud.customMetrics.insert(metric)
+                            // Turning on a timeline metric implies the encoder
+                            // timing it depends on.
+                            if metric.needsEncoderTiming {
+                                model.hud.encoderTiming = true
+                            }
+                        } else {
+                            model.hud.customMetrics.remove(metric)
+                        }
+                    }
+                )) {
+                    Text(t(metric.localizationKey))
+                        .font(.caption)
+                }
+                .padding(.vertical, 5)
+                rowDivider
+            }
+        }
+    }
+
+    private var advancedOptions: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Toggle(isOn: $model.hud.encoderTiming) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(t(.hudEncoderTiming)).font(.caption)
+                    Text(t(.hudEncoderTimingFooter))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.vertical, 6)
+
+            if model.hud.encoderTiming {
+                stepperRow(title: t(.hudTimelineFrames),
+                           value: $model.hud.encoderTimelineFrames,
+                           range: MetalHUD.timelineFrameRange)
+                sliderRow(title: t(.hudTimelineDelta),
+                          value: $model.hud.encoderTimelineSwapDelta,
+                          range: MetalHUD.timelineDeltaRange,
+                          format: "%.1f")
+            }
+
+            rowDivider
+
+            Toggle(t(.hudShowZero), isOn: $model.hud.showZeroMetrics)
+                .font(.caption)
+                .padding(.vertical, 6)
+
+            Toggle(t(.hudShowRange), isOn: $model.hud.showMetricsRange)
+                .font(.caption)
+                .padding(.vertical, 6)
+
+            rowDivider
+
+            Toggle(t(.hudInsights), isOn: $model.hud.insightsEnabled)
+                .font(.caption)
+                .padding(.vertical, 6)
+
+            if model.hud.insightsEnabled {
+                sliderRow(title: t(.hudInsightTimeout),
+                          value: $model.hud.insightTimeout,
+                          range: 1...60,
+                          format: "%.0f")
+                sliderRow(title: t(.hudInsightInterval),
+                          value: $model.hud.insightReportInterval,
+                          range: 1...60,
+                          format: "%.0f")
+            }
+
+            rowDivider
+
+            Toggle(isOn: $model.hud.consoleLogging) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(t(.hudConsoleLogging)).font(.caption)
+                    Text(t(.hudConsoleLoggingFooter))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 6)
+
+            sliderRow(title: t(.hudRusageInterval),
+                      value: $model.hud.rusageUpdateInterval,
+                      range: 0.1...10,
+                      format: "%.1f")
+
+            sliderRow(title: t(.hudMetricTimeout),
+                      value: $model.hud.metricTimeout,
+                      range: 0.1...5,
+                      format: "%.1f")
+        }
+        .padding(.top, 6)
+    }
+
+    private func stepperRow(
+        title: String,
+        value: Binding<Int>,
+        range: ClosedRange<Int>
+    ) -> some View {
+        HStack {
+            Text(title).font(.caption)
+            Spacer()
+            Text("\(value.wrappedValue)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            Stepper("", value: value, in: range)
+                .labelsHidden()
+        }
+        .padding(.vertical, 4)
     }
 
     // MARK: - Apps

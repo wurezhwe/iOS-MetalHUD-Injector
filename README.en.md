@@ -199,19 +199,44 @@ time. No screen mixes languages.
 
 ### HUD options
 
-Grouped the way the system's Graphics HUD options are:
+Mirrors the system **Settings → Developer → Graphics HUD** panel and covers every
+key documented in Apple's
+[`MetalPerformanceHUD(1)`](https://keith.github.io/xcode-man-pages/MetalPerformanceHUD.1.html):
 
-| Option | Environment variable | Notes |
+| Panel item | Environment variable | Values / default |
 | --- | --- | --- |
-| Enable Metal Performance HUD | `MTL_HUD_ENABLED` | Master switch. With it off **nothing is injected**, which makes this a control run equivalent to tapping the Home Screen icon |
-| Scale | `MTL_HUD_SCALE` | HUD size, default `0.35` |
-| Alignment | `MTL_HUD_ALIGNMENT` | Six values: top-left / top-right / bottom-left / bottom-right / top-center / bottom-center |
-| Mirror to log | `MTL_HUD_LOG_ENABLED` | Advanced |
-| Terminate before launch | — | Not an injection; a launch behaviour |
-| Games only | — | Filters by publisher prefix and game-name keywords, and hides extensions/widgets |
+| Show Metal Performance HUD | `MTL_HUD_ENABLED` | `1` / `0`, default `0`. Off means **nothing is injected** — a control run |
+| Opacity | `MTL_HUD_OPACITY` | `0.0 – 1.0`, default `1.0` |
+| Scale | `MTL_HUD_SCALE` | fraction of drawable width, clamped `0.1 – 1.0`, default `0.2` |
+| Position | `MTL_HUD_ALIGNMENT` | **nine values**: `topleft` `topcenter` `topright` `centerleft` `centered` `centerright` `bottomleft` `bottomcenter` `bottomright`, default `topright` |
+| Absolute position | `MTL_HUD_POSITION_X` / `_Y` | pixels; overrides `MTL_HUD_ALIGNMENT` |
+| Metrics | `MTL_HUD_ELEMENTS` | preset layout `Lite`/`FPS`/`Default`/`Rich`/`Full`, or a comma-separated metric list |
+| Encoder GPU timing | `MTL_HUD_ENCODER_TIMING_ENABLED` | default `0`; required by the GPU timeline |
+| GPU timeline frames | `MTL_HUD_ENCODER_GPU_TIMELINE_FRAME_COUNT` | clamped `1 – 10`, default `6` |
+| GPU timeline interval | `MTL_HUD_ENCODER_GPU_TIMELINE_SWAP_DELTA` | `0.1 – 10.0` s, default `1.0` |
+| Show always-zero metrics | `MTL_HUD_SHOW_ZERO_METRICS` | default `0` |
+| Show min / max | `MTL_HUD_SHOW_METRICS_RANGE` | default `0` |
+| Performance insights | `MTL_HUD_INSIGHTS_ENABLED` | default `0` |
+| Insight timeout | `MTL_HUD_INSIGHT_TIMEOUT` | s, min `1.0`, default `10.0` |
+| Insight report interval | `MTL_HUD_INSIGHT_REPORT_INTERVAL` | s, min `1.0`, default `5.0` |
+| Resource usage refresh | `MTL_HUD_RUSAGE_UPDATE_INTERVAL` | s, min `0.1`, default `3.0` |
+| Transient metric timeout | `MTL_HUD_METRIC_TIMEOUT` | s, min `0.1`, default `1.0` |
+| Console logging | `MTL_HUD_LOG_ENABLED` | **deprecated by Apple**, off by default |
+| Terminate before launch | — | not an injection; launch behaviour |
+| Games only | — | publisher/name heuristic; hides extensions and widgets |
 
-The exact environment that will be injected is shown live underneath, with a
-"reset to defaults" button at the end.
+The 19 selectable metrics (`MTL_HUD_ELEMENTS`) are: `device` `layersize`
+`layerscale` `memory` `thermal` `fps` `fpsgraph` `framenumber` `gputime`
+`presentdelay` `frameinterval` `frameintervalgraph` `frameintervalhistogram`
+`metalcpu` `shaders` `disk` `gputimeline` `toplabeledcommandbuffers`
+`toplabeledencoders`.
+
+> ⚠️ Two easy mistakes: `MTL_HUD_ALIGNMENT` takes **`topright`** (no hyphen;
+> `tr` works too), not `top-right`. And `MTL_HUD_SCALE` is a *fraction of the
+> drawable width*, not a multiplier.
+
+Only values that differ from the documented default are emitted, and the exact
+environment is shown live underneath.
 
 ## Troubleshooting
 

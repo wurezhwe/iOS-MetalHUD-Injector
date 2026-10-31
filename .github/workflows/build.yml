@@ -43,6 +43,7 @@ jobs:
           python3 scripts/check_readmes.py
           python3 scripts/check_locales.py
           python3 scripts/check_l10n.py
+          python3 scripts/check_keys.py
 
       - name: Cache cargo registry and build
         uses: actions/cache@v4

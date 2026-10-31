@@ -178,18 +178,42 @@ iOS 27 起，App 可以反過來扮演「可配對的主機」，讓你在設定
 
 ### HUD 設定
 
-依照系統設定／Xcode 的 Graphics HUD 選項分組：
+參照系統 **設定 → 開發者 → Graphics HUD** 的面板版面，涵蓋 Apple
+[`MetalPerformanceHUD(1)`](https://keith.github.io/xcode-man-pages/MetalPerformanceHUD.1.html)
+文件裡的全部可用項目：
 
-| 選項 | 對應環境變數 | 說明 |
+| 面板項目 | 環境變數 | 取值 / 預設 |
 | --- | --- | --- |
-| 顯示 Metal 效能 HUD | `MTL_HUD_ENABLED` | 總開關。關閉後**不注入任何變數**，等同從主畫面圖示啟動的對照組 |
-| 縮放 | `MTL_HUD_SCALE` | HUD 大小，預設 `0.35` |
-| 對齊方式 | `MTL_HUD_ALIGNMENT` | 六種：左上／右上／左下／右下／頂部置中／底部置中 |
-| 同時寫入記錄 | `MTL_HUD_LOG_ENABLED` | 進階選項 |
-| 啟動前結束舊實例 | — | 不屬於注入，是啟動行為 |
-| 只看遊戲 | — | 依發行商前綴與遊戲名稱過濾，會同時隱藏擴充功能／小工具 |
+| 顯示 Metal 效能 HUD | `MTL_HUD_ENABLED` | `1` / `0`，預設 `0`。關閉後**不注入任何變數**，等同對照組 |
+| 不透明度 | `MTL_HUD_OPACITY` | `0.0 – 1.0`，預設 `1.0` |
+| 縮放比例 | `MTL_HUD_SCALE` | 佔繪製寬度比例，鉗制 `0.1 – 1.0`，預設 `0.2` |
+| 位置 | `MTL_HUD_ALIGNMENT` | **九個值**：`topleft` `topcenter` `topright` `centerleft` `centered` `centerright` `bottomleft` `bottomcenter` `bottomright`，預設 `topright` |
+| 絕對座標 | `MTL_HUD_POSITION_X` / `_Y` | 像素，設定後覆蓋 `MTL_HUD_ALIGNMENT` |
+| 測量指標 | `MTL_HUD_ELEMENTS` | 預設版式 `Lite`/`FPS`/`Default`/`Rich`/`Full`，或逗號分隔的指標名稱 |
+| 編碼器 GPU 時間追蹤 | `MTL_HUD_ENCODER_TIMING_ENABLED` | 預設 `0`；GPU 時間線需要它 |
+| GPU 時間線幀數 | `MTL_HUD_ENCODER_GPU_TIMELINE_FRAME_COUNT` | 鉗制 `1 – 10`，預設 `6` |
+| GPU 時間線間隔 | `MTL_HUD_ENCODER_GPU_TIMELINE_SWAP_DELTA` | `0.1 – 10.0` 秒，預設 `1.0` |
+| 顯示恆為 0 的指標 | `MTL_HUD_SHOW_ZERO_METRICS` | 預設 `0` |
+| 顯示最小 / 最大值 | `MTL_HUD_SHOW_METRICS_RANGE` | 預設 `0` |
+| 效能分析 | `MTL_HUD_INSIGHTS_ENABLED` | 預設 `0` |
+| 提示消失時間 | `MTL_HUD_INSIGHT_TIMEOUT` | 秒，最小 `1.0`，預設 `10.0` |
+| 提示上報間隔 | `MTL_HUD_INSIGHT_REPORT_INTERVAL` | 秒，最小 `1.0`，預設 `5.0` |
+| 資源佔用更新 | `MTL_HUD_RUSAGE_UPDATE_INTERVAL` | 秒，最小 `0.1`，預設 `3.0` |
+| 臨時指標逾時 | `MTL_HUD_METRIC_TIMEOUT` | 秒，最小 `0.1`，預設 `1.0` |
+| 寫入主控台 | `MTL_HUD_LOG_ENABLED` | **Apple 已棄用**，預設關閉 |
+| 啟動前結束舊實例 | — | 不是注入，屬於啟動行為 |
+| 只看遊戲 | — | 依發行商前綴與遊戲名稱過濾，會隱藏擴充功能 / 小工具 |
 
-下方即時顯示將要注入的完整環境變數，末尾有「回復預設值」。
+可選指標（`MTL_HUD_ELEMENTS`）共 19 項：`device` `layersize` `layerscale`
+`memory` `thermal` `fps` `fpsgraph` `framenumber` `gputime` `presentdelay`
+`frameinterval` `frameintervalgraph` `frameintervalhistogram` `metalcpu`
+`shaders` `disk` `gputimeline` `toplabeledcommandbuffers` `toplabeledencoders`。
+
+> ⚠️ 兩個容易弄錯的地方：`MTL_HUD_ALIGNMENT` 用的是 **`topright`**
+> （沒有連字號，簡寫 `tr` 也可以），不是 `top-right`；`MTL_HUD_SCALE` 是
+> **佔繪製寬度的比例**，不是倍率。
+
+程式只把**與預設值不同**的項目寫進環境變數，下方即時顯示最終注入的完整內容。
 
 ## 疑難排解
 

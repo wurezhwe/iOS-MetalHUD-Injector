@@ -15,14 +15,14 @@ final class AppModel: ObservableObject {
     @Published var phase: Phase = .idle
     @Published var apps: [InstalledApp] = []
     @Published var gateway: String = "10.7.0.1"
-    @Published var hudScale: String = "0.35"
-    @Published var hudAlignment: String = HUDAlignment.topRight.rawValue
-    @Published var hudLogEnabled: Bool = false
+
+    /// Everything the Metal HUD understands, in one value. Editing any field
+    /// re-derives the launch environment below.
+    @Published var hud = HUDConfiguration()
+
+    /// Launch behaviour, not injection.
     @Published var killExisting: Bool = true
-    /// Master switch, mirroring the system's "Show Graphics HUD" toggle. With it
-    /// off the launcher behaves like the normal Home Screen icon: no injection,
-    /// which is the control group when measuring HUD overhead.
-    @Published var hudEnabled: Bool = true
+
     /// Filter the list down to apps that look like games.
     @Published var gamesOnly: Bool = false {
         didSet { if oldValue != gamesOnly { gamesFilterChanged() } }
@@ -122,30 +122,29 @@ final class AppModel: ObservableObject {
         applySearch(query: searchQuery, immediate: true)
     }
 
-    /// Put every HUD knob back to what Xcode uses by default.
+    /// Put every knob back to the documented defaults.
     func resetHudDefaults() {
-        hudEnabled = true
-        hudScale = "0.35"
-        hudAlignment = HUDAlignment.topRight.rawValue
-        hudLogEnabled = false
+        hud = HUDConfiguration()
         killExisting = true
         gamesOnly = false
         applySearch(query: searchQuery, immediate: true)
     }
 
-    /// The environment we hand to the target process.
-    var environment: [String: String] {
-        // With the master switch off we inject nothing at all: the process runs
-        // exactly as it would from the Home Screen. That is the control group.
-        guard hudEnabled else { return [:] }
+    /// Restore only the metric selection, leaving placement alone - this is what
+    /// the system panel's "Restore default metrics" button does.
+    func resetHudMetrics() {
+        hud.customMetrics = []
+        hud.layout = MetalHUD.defaultLayout
+        hud.showZeroMetrics = false
+        hud.showMetricsRange = false
+    }
 
-        var env = ["MTL_HUD_ENABLED": "1"]
-        let scale = hudScale.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !scale.isEmpty { env["MTL_HUD_SCALE"] = scale }
-        let alignment = hudAlignment.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !alignment.isEmpty { env["MTL_HUD_ALIGNMENT"] = alignment }
-        if hudLogEnabled { env["MTL_HUD_LOG_ENABLED"] = "1" }
-        return env
+    /// The environment we hand to the target process.
+    ///
+    /// `HUDConfiguration.environment()` already returns an empty dictionary when
+    /// the master switch is off, which is the control-group behaviour.
+    var environment: [String: String] {
+        hud.environment()
     }
 
     var environmentSummary: String {
