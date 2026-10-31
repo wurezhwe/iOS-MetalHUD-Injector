@@ -6,7 +6,10 @@ import SwiftUI
 /// (`View.glassEffect(_:in:)`). The deployment target is 16.0, so everything is
 /// wrapped in an availability check and falls back to a hand-rolled frosted
 /// surface that reads the same in a screenshot.
-enum Glass {
+///
+/// Note: no local type may be called `Glass` - that name belongs to SwiftUI's
+/// material type, and shadowing it breaks `.regular` / `.interactive(_:)`.
+enum GlassSupport {
 
     static var isAvailable: Bool {
         if #available(iOS 26.0, *) { return true } else { return false }
@@ -25,10 +28,7 @@ struct GlassCard: ViewModifier {
             content
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .glassEffect(
-                    tint.map { Glass.regular.tint($0) } ?? Glass.regular,
-                    in: .rect(cornerRadius: cornerRadius)
-                )
+                .glassEffect(glassValue, in: .rect(cornerRadius: cornerRadius))
         } else {
             content
                 .padding(16)
@@ -39,6 +39,16 @@ struct GlassCard: ViewModifier {
                         .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
                 )
         }
+    }
+
+    /// Spelled out as a concrete `Glass` so the compiler has a type to resolve
+    /// `.regular` against (an inline `??`/ternary expression loses that).
+    @available(iOS 26.0, *)
+    private var glassValue: Glass {
+        if let tint {
+            return Glass.regular.tint(tint)
+        }
+        return Glass.regular
     }
 }
 
@@ -90,7 +100,7 @@ struct GlassSearchField: View {
 private struct GlassPill: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            content.glassEffect(Glass.regular.interactive(true), in: .capsule)
+            content.glassEffect(Glass.regular.interactive(true), in: Capsule())
         } else {
             content
                 .background(.ultraThinMaterial, in: Capsule())
@@ -140,12 +150,7 @@ private struct GlassActionSurface: ViewModifier {
         let shape = Capsule()
 
         if #available(iOS 26.0, *) {
-            content.glassEffect(
-                prominent
-                    ? Glass.regular.tint(tint).interactive(true)
-                    : Glass.regular.interactive(true),
-                in: shape
-            )
+            content.glassEffect(glassValue, in: shape)
         } else {
             content
                 .background {
@@ -157,6 +162,15 @@ private struct GlassActionSurface: ViewModifier {
                 }
                 .overlay(shape.strokeBorder(Color.white.opacity(prominent ? 0 : 0.10), lineWidth: 1))
         }
+    }
+
+    /// Concrete `Glass` so `.regular` has something to resolve against.
+    @available(iOS 26.0, *)
+    private var glassValue: Glass {
+        if prominent {
+            return Glass.regular.tint(tint).interactive(true)
+        }
+        return Glass.regular.interactive(true)
     }
 }
 
