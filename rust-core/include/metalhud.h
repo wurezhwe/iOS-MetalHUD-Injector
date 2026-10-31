@@ -28,7 +28,7 @@ char *mh_version(void);
 
 /// Candidate gateway addresses for the RSD dial (e.g. "10.7.0.1").
 /// Pass NULL/0 to fall back to the built-in defaults.
-int32_t mh_set_hosts(const char **hosts, size_t count);
+int32_t mh_set_hosts(const char *const *hosts, size_t count);
 
 /// Forgets the cached tunnel route; call after switching VPNs.
 void mh_clear_route(void);

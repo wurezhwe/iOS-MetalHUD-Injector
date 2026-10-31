@@ -177,7 +177,7 @@ async fn run_host_async(
         }
     };
 
-    let mut host_info = PairableHostInfo::generate(&name, &model);
+    let mut host_info = PairableHostInfo::generate(name.clone(), model.clone());
     if let Some(irk) = saved_alt_irk {
         host_info.alt_irk = irk;
         logging::Logger::new("pair").log("reusing stored altIRK");
