@@ -24,6 +24,7 @@ use std::time::Duration;
 
 use idevice::remote_pairing::{
     connect_tls_psk_tunnel_native, RemotePairingClient, RpPairingFile, RpPairingSocket,
+    RpPairingSocketProvider,
 };
 use idevice::services::rsd::RsdHandshake;
 use idevice::tcp::adapter::Adapter;
@@ -134,7 +135,7 @@ pub async fn connect(pairing_path: &str) -> Result<DeviceLink, String> {
     ));
 
     let cached = cached_route();
-    let mut last_error = String::from("no candidate host was tried");
+    let mut failures: Vec<String> = Vec::new();
 
     for host in hosts {
         let prefer_remotexpc = cached.map(|c| c.via_remotexpc).unwrap_or(true);
@@ -150,7 +151,7 @@ pub async fn connect(pairing_path: &str) -> Result<DeviceLink, String> {
                 }
                 Err(e) => {
                     LOG.log(format!("{host}:{RSD_PORT} RemoteXPC failed: {e}"));
-                    last_error = e;
+                    failures.push(format!("{host} RemoteXPC: {e}"));
                 }
             }
         }
@@ -165,10 +166,16 @@ pub async fn connect(pairing_path: &str) -> Result<DeviceLink, String> {
             }
             Err(e) => {
                 LOG.log(format!("{host}:{RSD_PORT} raw RPPairing failed: {e}"));
-                last_error = e;
+                failures.push(format!("{host} raw RPPairing: {e}"));
             }
         }
     }
+
+    let last_error = if failures.is_empty() {
+        "no candidate host was tried".to_string()
+    } else {
+        failures.last().cloned().unwrap_or_default()
+    };
 
     Err(format!(
         "could not reach the device: {last_error}. \
@@ -199,7 +206,10 @@ async fn try_host(
         .map_err(|e| format!("connect failed: {e}"))?;
 
     // --- pair-verify over the chosen transport -----------------------------
-    let mut rpc = if via_remotexpc {
+    // The two transports give different concrete types, so each branch hands
+    // its client to the same generic continuation instead of being unified into
+    // one `if` expression.
+    if via_remotexpc {
         let rsd = RsdHandshake::new(stream)
             .await
             .map_err(|e| format!("RSD handshake failed: {e}"))?;
@@ -227,12 +237,32 @@ async fn try_host(
             .await
             .map_err(|e| format!("RemoteXPC recv_root failed: {e}"))?;
 
-        RemotePairingClient::new(conn, "MetalHUD")
+        finish_tunnel(
+            RemotePairingClient::new(conn, "MetalHUD"),
+            host,
+            &mut pairing_file,
+        )
+        .await
     } else {
-        RemotePairingClient::new(RpPairingSocket::new(stream), "MetalHUD")
-    };
+        finish_tunnel(
+            RemotePairingClient::new(RpPairingSocket::new(stream), "MetalHUD"),
+            host,
+            &mut pairing_file,
+        )
+        .await
+    }
+}
 
-    rpc.connect(&mut pairing_file, || async { "000000".to_string() })
+/// Everything after pair-verify, shared by both transports.
+async fn finish_tunnel<R>(
+    mut rpc: RemotePairingClient<R>,
+    host: IpAddr,
+    pairing_file: &mut RpPairingFile,
+) -> Result<DeviceLink, String>
+where
+    R: RpPairingSocketProvider,
+{
+    rpc.connect(pairing_file, || async { "000000".to_string() })
         .await
         .map_err(|e| {
             format!(

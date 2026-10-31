@@ -15,7 +15,6 @@ use std::ffi::{c_char, c_void};
 use std::net::IpAddr;
 
 use crate::ffi_util::{cstr, opt_str, string_free};
-use crate::logging;
 use crate::pairing::{self, MhPairResult, PairPinCb, PairReadyCb};
 
 /// Convert a Rust list of apps into the JSON the Swift side decodes.
