@@ -93,12 +93,32 @@ enum L10n {
     // MARK: - Resolution
 
     /// Translate `key` for `language`.
+    ///
+    /// Falls back to English, then to the raw key, rather than force-unwrapping:
+    /// a missing entry should degrade to a visible-but-wrong label instead of
+    /// crashing the app in front of the user.
     static func string(_ key: Key, _ language: Language) -> String {
+        let table: [Key: String]
         switch language {
-        case .english: return english[key]!
-        case .simplified: return simplified[key]!
-        case .traditional: return traditional[key]!
+        case .english: table = english
+        case .simplified: table = simplified
+        case .traditional: table = traditional
         }
+        if let value = table[key] { return value }
+        if let fallback = english[key] { return fallback }
+        return key.rawValue
+    }
+
+    /// Every key must exist in all three tables; this makes an omission loud
+    /// during development instead of quietly falling back at runtime.
+    static func missingKeys() -> [(Language, Key)] {
+        var missing: [(Language, Key)] = []
+        for key in Key.allCases {
+            if english[key] == nil { missing.append((.english, key)) }
+            if simplified[key] == nil { missing.append((.simplified, key)) }
+            if traditional[key] == nil { missing.append((.traditional, key)) }
+        }
+        return missing
     }
 
     // MARK: - Tables
