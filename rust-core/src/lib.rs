@@ -5,6 +5,12 @@
 //! callback installed by `mh_log_init`. That keeps the Swift side simple - call
 //! from `Task.detached`, read the returned JSON (or error string).
 
+mod ffi_util;
+mod launch;
+mod logging;
+mod pairing;
+mod tunnel;
+
 use std::ffi::{c_char, c_void};
 use std::net::IpAddr;
 

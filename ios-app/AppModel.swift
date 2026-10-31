@@ -130,8 +130,9 @@ final class AppModel: ObservableObject {
         phase = .working("Connecting to the device…")
         pushHosts()
 
+        let path = PairingController.pairingFilePath
         let result = await runOffMain {
-            Bridge.listApps(pairingPath: PairingController.pairingFilePath)
+            Bridge.listApps(pairingPath: path)
         }
 
         switch result {
@@ -154,8 +155,9 @@ final class AppModel: ObservableObject {
         Task {
             phase = .working("Probing the device…")
             pushHosts()
+            let path = PairingController.pairingFilePath
             let result = await runOffMain {
-                Bridge.probe(pairingPath: PairingController.pairingFilePath)
+                Bridge.probe(pairingPath: path)
             }
             switch result {
             case .success(let probe):
@@ -174,13 +176,20 @@ final class AppModel: ObservableObject {
             phase = .working("Launching \(app.name)…")
             pushHosts()
 
+            // Snapshot the value types we need so the detached closure captures
+            // no actor-isolated state.
+            let env = environment
+            let bundle = app.bundleId
+            let kill = killExisting
+            let path = PairingController.pairingFilePath
+
             let result = await runOffMain {
                 Bridge.launch(
-                    pairingPath: PairingController.pairingFilePath,
-                    bundleID: app.bundleId,
-                    environment: environment,
+                    pairingPath: path,
+                    bundleID: bundle,
+                    environment: env,
                     arguments: [],
-                    killExisting: killExisting
+                    killExisting: kill
                 )
             }
 
@@ -210,10 +219,11 @@ final class AppModel: ObservableObject {
             let destination = PairingController.documentsDirectory
                 .appendingPathComponent("screenshot-\(stamp).png")
             let path = destination.path
+            let pairingPath = PairingController.pairingFilePath
 
             let result = await runOffMain {
                 Bridge.screenshot(
-                    pairingPath: PairingController.pairingFilePath,
+                    pairingPath: pairingPath,
                     destination: path
                 )
             }
