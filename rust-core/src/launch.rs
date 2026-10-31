@@ -90,12 +90,7 @@ pub async fn list_apps(pairing_path: &str) -> Result<Vec<AppInfo>, String> {
     let mut link = tunnel::connect(pairing_path).await?;
 
     let entries = {
-        let mut service = link
-            .handshake
-            .connect::<AppServiceClient<Box<dyn ReadWrite>>>(&mut link.adapter)
-            .await
-            .map_err(|e| format!("cannot open com.apple.coredevice.appservice: {e}"))?;
-
+        let mut service: AppServiceClient<Box<dyn ReadWrite>> = link.open().await?;
         service
             .list_apps(false, true, false, false, false)
             .await
@@ -139,11 +134,7 @@ async fn launch_via_core_device(
     link: &mut DeviceLink,
     options: &LaunchOptions,
 ) -> Result<String, String> {
-    let mut service = link
-        .handshake
-        .connect::<AppServiceClient<Box<dyn ReadWrite>>>(&mut link.adapter)
-        .await
-        .map_err(|e| format!("cannot open com.apple.coredevice.appservice: {e}"))?;
+    let mut service: AppServiceClient<Box<dyn ReadWrite>> = link.open().await?;
 
     let environment = env_dict(&options.env);
     let argv: Vec<&str> = options.arguments.iter().map(|s| s.as_str()).collect();
@@ -173,11 +164,7 @@ async fn launch_via_core_device(
 }
 
 async fn launch_via_dvt(link: &mut DeviceLink, options: &LaunchOptions) -> Result<String, String> {
-    let mut server = link
-        .handshake
-        .connect::<RemoteServerClient<Box<dyn ReadWrite>>>(&mut link.adapter)
-        .await
-        .map_err(|e| format!("cannot open com.apple.instruments.dtservicehub: {e}"))?;
+    let mut server: RemoteServerClient<Box<dyn ReadWrite>> = link.open().await?;
 
     let pid = {
         let mut control = ProcessControlClient::new(&mut server)
@@ -212,12 +199,7 @@ pub async fn screenshot(pairing_path: &str, path: &str) -> Result<String, String
 
     let mut link = tunnel::connect(pairing_path).await?;
     let bytes = {
-        let mut capture = link
-            .handshake
-            .connect::<ScreenCaptureServiceClient<Box<dyn ReadWrite>>>(&mut link.adapter)
-            .await
-            .map_err(|e| format!("cannot open com.apple.coredevice.screencaptureservice: {e}"))?;
-
+        let mut capture: ScreenCaptureServiceClient<Box<dyn ReadWrite>> = link.open().await?;
         capture
             .take_screenshot(None, ImageFormat::Png)
             .await

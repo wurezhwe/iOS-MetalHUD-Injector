@@ -29,7 +29,7 @@ use idevice::remote_pairing::{
 use idevice::services::rsd::RsdHandshake;
 use idevice::tcp::adapter::Adapter;
 use idevice::tcp::handle::AdapterHandle;
-use idevice::{ReadWrite, RemoteXpcClient};
+use idevice::{ReadWrite, RemoteXpcClient, RsdService};
 use tokio::net::TcpStream;
 
 use crate::logging::Logger;
@@ -112,6 +112,23 @@ pub struct DeviceLink {
     pub adapter: AdapterHandle,
     pub handshake: RsdHandshake,
     pub host: IpAddr,
+}
+
+impl DeviceLink {
+    /// Open one RSD service. The split borrow inside makes it possible to hand
+    /// the adapter to a handshake that we also hold mutably.
+    pub async fn open<T>(&mut self) -> Result<T, String>
+    where
+        T: RsdService,
+    {
+        let DeviceLink {
+            adapter, handshake, ..
+        } = self;
+        handshake
+            .connect::<T>(adapter)
+            .await
+            .map_err(|e| format!("{}: {e}", T::rsd_service_name()))
+    }
 }
 
 /// Establish a tunnel and complete an RSD handshake inside it.
