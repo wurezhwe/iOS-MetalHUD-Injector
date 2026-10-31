@@ -78,7 +78,7 @@ Actions → Build IPA → Run workflow
 
 After a successful build, `Release IPA` publishes the artifact to
 [Releases](../../releases); the tag is the `MARKETING_VERSION` from
-`project.yml` (currently **v1.1.0**):
+`project.yml` (currently **v1.2.0**):
 
 ```
 https://github.com/wurezhwe/iOS-MetalHUD-Injector/releases/latest/download/MetalHUDLauncher.ipa
@@ -184,10 +184,34 @@ layout.
 | --- | --- |
 | Pairing record | Whether a pairing file exists; Forget / Import |
 | Gateway | RSD dial address, defaults to `10.7.0.1`; Apply re-pushes the candidate list |
-| Probe | Opens a tunnel without launching anything and reports how many services the device exposes and whether appservice / dvt exist |
-| Injected environment | Live view of the variables that will be injected |
-| Installed apps | App list + search + launch |
+| Probe | Opens a tunnel without launching anything and reports how many services the device exposes and whether appservice / dvt / screenshot channels exist |
+| Metal HUD | see "HUD options" below |
+| Installed apps | App list + search + games-only + launch |
 | Tunnel log | Live tunnel/launch log, copyable |
+
+**Light and dark mode** are both supported: the colour scheme is not forced, and
+every colour follows the system appearance (light mode uses a deeper teal so
+contrast stays readable).
+
+**Fully localised** into **English / 简体中文 / 繁體中文**. The app follows the
+system language on first launch, and the 🌐 button in the toolbar switches at any
+time. No screen mixes languages.
+
+### HUD options
+
+Grouped the way the system's Graphics HUD options are:
+
+| Option | Environment variable | Notes |
+| --- | --- | --- |
+| Enable Metal Performance HUD | `MTL_HUD_ENABLED` | Master switch. With it off **nothing is injected**, which makes this a control run equivalent to tapping the Home Screen icon |
+| Scale | `MTL_HUD_SCALE` | HUD size, default `0.35` |
+| Alignment | `MTL_HUD_ALIGNMENT` | Six values: top-left / top-right / bottom-left / bottom-right / top-center / bottom-center |
+| Mirror to log | `MTL_HUD_LOG_ENABLED` | Advanced |
+| Terminate before launch | — | Not an injection; a launch behaviour |
+| Games only | — | Filters by publisher prefix and game-name keywords, and hides extensions/widgets |
+
+The exact environment that will be injected is shown live underneath, with a
+"reset to defaults" button at the end.
 
 ## Troubleshooting
 

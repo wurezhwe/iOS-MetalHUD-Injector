@@ -68,7 +68,7 @@ Actions → Build IPA → Run workflow
 ```
 
 构建成功后 `Release IPA` 会自动把产物发到 [Releases](../../releases)，tag 就是
-`project.yml` 里的 `MARKETING_VERSION`（当前 **v1.1.0**）：
+`project.yml` 里的 `MARKETING_VERSION`（当前 **v1.2.0**）：
 
 ```
 https://github.com/wurezhwe/iOS-MetalHUD-Injector/releases/latest/download/MetalHUDLauncher.ipa
@@ -165,10 +165,31 @@ iOS 27 起，App 可以反过来扮演"可配对的主机"，让你在设置里�
 | --- | --- |
 | Pairing record | 显示是否已有配对文件，可 Forget / Import |
 | Gateway | RSD 拨号地址，默认 `10.7.0.1`；旁边 Apply 会重新推送候选地址列表 |
-| Probe | 只建隧道不启动应用，报告设备暴露了多少服务、有没有 appservice / dvt |
-| 注入环境 | 实时显示将要注入的环境变量 |
-| Installed apps | 应用列表 + 搜索 + 启动 |
+| Probe | 只建隧道不启动应用，报告设备暴露了多少服务、有没有 appservice / dvt / 截图通道 |
+| Metal HUD | 见下方「HUD 配置」 |
+| Installed apps | 应用列表 + 搜索 + 只看游戏 + 启动 |
 | Tunnel log | 隧道与启动过程的实时日志，可复制 |
+
+**支持日间 / 夜间模式**：不强制暗色，配色跟随系统外观自动切换
+（浅色下用更深的青色保证对比度）。
+
+**完整多语言**：应用内所有文字都有 **简体中文 / English / 繁體中文** 三套，
+首次启动跟随系统语言，也可以点左上角 🌐 随时切换，不存在中英混杂。
+
+### HUD 配置
+
+按系统设置 / Xcode 的 Graphics HUD 选项分组：
+
+| 选项 | 对应环境变量 | 说明 |
+| --- | --- | --- |
+| 显示 Metal 性能 HUD | `MTL_HUD_ENABLED` | 总开关。关掉后**不注入任何变量**，等于从桌面图标启动的对照组 |
+| 缩放 | `MTL_HUD_SCALE` | HUD 大小，默认 `0.35` |
+| 对齐方式 | `MTL_HUD_ALIGNMENT` | 六种：左上 / 右上 / 左下 / 右下 / 顶部居中 / 底部居中 |
+| 同时写入日志 | `MTL_HUD_LOG_ENABLED` | 高级选项 |
+| 启动前结束旧实例 | — | 不注入，属于启动行为 |
+| 只看游戏 | — | 按发行商前缀和游戏名过滤，会同时隐藏扩展 / 小组件 |
+
+下方实时显示将要注入的完整环境变量，末尾有「恢复默认」。
 
 ## 排障
 
