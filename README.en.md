@@ -1,4 +1,4 @@
-# iOS-MetalHUD-Injector
+# iOS FPS Viewer · No Computer Needed · Install the IPA
 
 <p align="center">
   <img src="icon.png" width="120" height="120" alt="Metal HUD Launcher">
@@ -11,9 +11,9 @@
 </p>
 
 <p align="center">
-  Launch any <b>App Store app</b> from the device itself with <code>MTL_HUD_ENABLED</code>
-  injected, so the Metal performance HUD (live FPS / frame time) shows up.
-  No Mac, no Xcode, no jailbreak.
+  Inject <code>MTL_HUD_ENABLED</code> into <b>App Store apps</b> straight from your
+  iPhone / iPad, so the Metal performance HUD (live FPS / frame time) shows up.
+  <b>No computer, no cable, no Xcode, no jailbreak.</b>
 </p>
 
 <p align="center">
@@ -32,10 +32,28 @@
 
 ## What this is
 
-The **Developer → Show Graphics HUD** switch in Settings only applies to processes
-carrying the `get-task-allow` entitlement (Xcode debug builds and self-signed
-apps). App Store apps don't have it, which is why the switch appears to do
-nothing for them.
+In one sentence: **install a frame-rate tool on your iPad / iPhone, then use that
+device to launch other apps — and those apps come up with a live frame-rate
+overlay.**
+
+The overlay is Apple's own Metal Performance HUD, not a third-party one: that
+dark panel showing FPS / frame interval / GPU time is built into the system.
+
+### Why you need it
+
+The **Developer → Show Graphics HUD** switch in Settings does **nothing** for
+App Store apps:
+
+| | The Settings switch | The env vars this project injects |
+| --- | --- | --- |
+| Applies to | processes carrying `get-task-allow` | read at launch, **never checks the signature** |
+| **App Store apps** | ❌ no effect | ✅ works |
+| Xcode debug builds | ✅ | ✅ |
+| Self-signed apps | ✅ | ✅ |
+
+App Store apps don't have `get-task-allow` (that's the Xcode debug entitlement),
+so the switch never applies to them. This isn't a usage problem, it's a
+mechanism problem.
 
 Metal, however, reads process environment variables when it initialises, and
 that path **never consults the code signature**:
@@ -44,11 +62,15 @@ that path **never consults the code signature**:
 | --- | --- |
 | `MTL_HUD_ENABLED` | `1` turns the HUD on |
 | `MTL_HUD_SCALE` | HUD size, e.g. `0.35` |
-| `MTL_HUD_ALIGNMENT` | e.g. `top-right` |
+| `MTL_HUD_ALIGNMENT` | e.g. `topright` |
 | `MTL_HUD_LOG_ENABLED` | `1` also mirrors HUD data into the log |
 
-Get those variables into the target process at launch and the HUD appears.
-That is exactly what this project does:
+**Get those variables into the target process at launch and the HUD appears.**
+That is exactly what this project does.
+
+### How it does it
+
+The interesting part is that it never goes through a computer:
 
 1. The app runs **on your own device** and reaches the device's own RSD
    (Remote Service Discovery) port through a **loopback VPN** (LocalDevVPN, or
@@ -58,6 +80,9 @@ That is exactly what this project does:
    **CoreDevice `appservice`**'s `launchapplication`, passing
    `environmentVariables` along;
 4. The target app starts with the HUD injected.
+
+The whole chain runs **inside the device** — the computer is only used to build
+the IPA (and CI can do that too).
 
 On macOS this same chain is `devicectl device process launch -e`, and
 `devicectl` only exists on macOS — which is why "run a client on the device
@@ -70,7 +95,21 @@ itself" is the interesting part.
 | [wurezhwe/iOS-MetalHUD-Launcher](https://github.com/wurezhwe/iOS-MetalHUD-Launcher) | The `MTL_HUD_*` variable list, the `launch --env` approach |
 | [Mak5er/AirCard-iOS](https://github.com/Mak5er/AirCard-iOS) | On-device RPPairing host (pair from Settings), loopback tunnel routing and candidate gateway sweep, the `idevice` RSD/CoreDevice call pattern |
 
-The difference: the first one needs a **Windows PC with a USB cable** running
+### How it differs from the Windows version
+
+There is a sister project built on the same idea
+([iOS-MetalHUD-Launcher](https://github.com/wurezhwe/iOS-MetalHUD-Launcher));
+it launches over USB with `pymobiledevice3`, so **the computer must stay
+plugged in**.
+
+| | This project (on-device) | The Windows version |
+| --- | --- | --- |
+| Computer | not needed | needs a USB cable |
+| How you install | the IPA, onto the device | a Python script on Windows |
+| Pairing | approve it in Settings (iOS 27) | import a pairing file |
+| Works standalone | yes, away from the computer | only while tethered |
+
+In short: the first one needs a **Windows PC with a USB cable** running
 `pymobiledevice3`. This project does everything **on the device**
 (pair → tunnel → launch) and ships as an IPA.
 

@@ -1,4 +1,4 @@
-# iOS-MetalHUD-Injector
+# iOS 即時影格率檢視器 · 免電腦 · IPA 安裝
 
 <p align="center">
   <img src="icon.png" width="120" height="120" alt="Metal HUD Launcher">
@@ -11,8 +11,9 @@
 </p>
 
 <p align="center">
-  用一台 iPhone／iPad 自己啟動 <b>App Store 應用程式</b> 並注入 <code>MTL_HUD_ENABLED</code>，
-  讓 Metal 效能 HUD（即時 FPS／畫格時間）顯示出來。免 Mac、免 Xcode、不越獄。
+  在 iPhone／iPad 上直接替 <b>App Store 應用程式</b>注入 <code>MTL_HUD_ENABLED</code>，
+  讓 Metal 效能 HUD（即時 FPS／畫格時間）顯示出來。
+  <b>免電腦、免傳輸線、免 Xcode、不越獄</b>。
 </p>
 
 <p align="center">
@@ -31,8 +32,24 @@
 
 ## 這是什麼
 
-iOS 設定裡的 **開發者 → 顯示圖形 HUD** 這個開關，只對帶有 `get-task-allow` 權限的程序生效
-（Xcode 除錯建置、自簽應用程式）。App Store 應用程式沒有這個權限，所以那個開關對它們完全無效。
+一句話：**把一個測影格率的工具裝進 iPad／iPhone，然後用這台裝置直接啟動其他 App，那些 App 就會帶著即時影格率面板。**
+
+面板是 Apple 官方的 Metal Performance HUD —— 不是第三方面板，畫面上那一塊黑底
+顯示 FPS／畫格間隔／GPU 時間的方框，就是系統自帶的。
+
+### 為什麼需要它
+
+iOS 設定裡的 **開發者 → 顯示圖形 HUD** 這個開關，對 App Store 應用程式**完全無效**：
+
+| | 設定裡的開關 | 本專案注入的環境變數 |
+| --- | --- | --- |
+| 生效條件 | 只對帶有 `get-task-allow` 權限的程序 | 程序啟動時讀取，**不檢查簽章** |
+| **App Store 應用程式** | ❌ 無效 | ✅ 有效 |
+| Xcode 除錯建置 | ✅ | ✅ |
+| 自簽應用程式 | ✅ | ✅ |
+
+App Store 應用程式沒有 `get-task-allow`（那是 Xcode 的除錯權限），所以那個開關對它們
+永遠不生效。這不是操作問題，是機制問題。
 
 但 Metal 執行環境在程序啟動時會讀取環境變數，這條路徑**不檢查簽章**：
 
@@ -40,10 +57,14 @@ iOS 設定裡的 **開發者 → 顯示圖形 HUD** 這個開關，只對帶有 
 | --- | --- |
 | `MTL_HUD_ENABLED` | `1` 開啟 HUD |
 | `MTL_HUD_SCALE` | HUD 縮放比例，例如 `0.35` |
-| `MTL_HUD_ALIGNMENT` | 對齊方式，例如 `top-right` |
+| `MTL_HUD_ALIGNMENT` | 對齊方式，例如 `topright` |
 | `MTL_HUD_LOG_ENABLED` | `1` 同時把 HUD 資料寫進記錄 |
 
-只要能在啟動目標程序時把這些變數塞進去，HUD 就會出現。本專案做的就是這件事：
+**只要能在啟動目標程序時把這些變數塞進去，HUD 就會出現。** 本專案做的就是這件事。
+
+### 它是怎麼做到的
+
+關鍵在於「不經過電腦」這件事本身：
 
 1. 應用程式在你自己的裝置上執行，透過一個 **回環 VPN**（LocalDevVPN／SideStore 的 WireGuard）
    存取裝置自身的 RSD（Remote Service Discovery）連接埠；
@@ -51,6 +72,8 @@ iOS 設定裡的 **開發者 → 顯示圖形 HUD** 這個開關，只對帶有 
 3. 在通道裡連上裝置內部 RSD，呼叫 **CoreDevice `appservice`** 的 `launchapplication`，
    把 `environmentVariables` 一併傳過去；
 4. 目標應用程式帶著 HUD 啟動。
+
+整條鏈路都在裝置內部完成，**電腦只用來建置 IPA**（而且 CI 也能建置）。
 
 這條鏈路上 Xcode 用的是 `devicectl device process launch -e`，而 `devicectl` 只有 macOS 才有
 ——所以才需要「在裝置上自己跑一個用戶端」。
@@ -62,7 +85,20 @@ iOS 設定裡的 **開發者 → 顯示圖形 HUD** 這個開關，只對帶有 
 | [wurezhwe/iOS-MetalHUD-Launcher](https://github.com/wurezhwe/iOS-MetalHUD-Launcher) | `MTL_HUD_*` 環境變數清單、`launch --env` 這條思路、遊戲類應用程式的啟發式判斷 |
 | [Mak5er/AirCard-iOS](https://github.com/Mak5er/AirCard-iOS) | 裝置內 RPPairing host（在設定裡配對）、回環通道路由與候選閘道掃描、`idevice` 的 RSD／CoreDevice 呼叫方式 |
 
-差別在於：前者必須在 **Windows 上插傳輸線**用 `pymobiledevice3` 啟動；本專案**全程在裝置上**完成
+### 和 Windows 那套有什麼差別
+
+Windows 上有一個同思路的姊妹專案
+（[iOS-MetalHUD-Launcher](https://github.com/wurezhwe/iOS-MetalHUD-Launcher)），
+用 USB + `pymobiledevice3` 啟動，**需要插著電腦**。
+
+| | 本專案（裝置端） | Windows 版 |
+| --- | --- | --- |
+| 電腦 | 不用 | 需要插 USB |
+| 怎麼安裝 | IPA 裝到裝置上 | Windows 跑 Python 腳本 |
+| 配對 | 在設定裡點一下（iOS 27） | 匯入配對檔 |
+| 能獨立用嗎 | 離開電腦也能用 | 得一直連著電腦 |
+
+一句話差別：前者必須在 **Windows 上插傳輸線**用 `pymobiledevice3` 啟動；本專案**全程在裝置上**完成
 （配對 → 通道 → 啟動），產物是一個 IPA。
 
 ## 建置

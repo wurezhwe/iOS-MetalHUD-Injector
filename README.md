@@ -1,18 +1,19 @@
-# iOS-MetalHUD-Injector
+# iOS 实时帧率查看器 · 无需电脑 · IPA 安装
 
 <p align="center">
   <img src="icon.png" width="120" height="120" alt="Metal HUD Launcher">
 </p>
 
 <p align="center">
-  <b>简体中文</b> ·
+  <a href="README.md">简体中文</a> ·
   <a href="README.en.md">English</a> ·
   <a href="README.zh-TW.md">繁體中文</a>
 </p>
 
 <p align="center">
-  用一台 iPhone/iPad 自己启动 <b>App Store 应用</b> 并注入 <code>MTL_HUD_ENABLED</code>，
-  让 Metal 性能 HUD（实时 FPS / 帧时间）显示出来。免 Mac、免 Xcode、不越狱。
+  在 iPhone / iPad 上直接给 <b>App Store 应用</b>注入 <code>MTL_HUD_ENABLED</code>，
+  让 Metal 性能 HUD（实时 FPS / 帧时间）显示出来。
+  <b>不用电脑、不用数据线、不用 Xcode、不越狱</b>。
 </p>
 
 <p align="center">
@@ -31,19 +32,39 @@
 
 ## 这是什么
 
-iOS 设置里 **开发者 → 显示图形 HUD** 这个开关只对带 `get-task-allow` 权限的进程生效
-（Xcode 调试构建、自签应用）。App Store 应用没有这个权限，所以那个开关对它们完全无效。
+一句话：**把一个测帧率的工具装进 iPad / iPhone，然后在这台设备上直接启动别的 App，那些 App 就会带上实时帧率面板。**
 
-但 Metal 运行时在进程启动时会读取环境变量，这条路径**不检查签名**：
+面板是 Apple 官方的 Metal Performance HUD —— 不是第三方面板，画面上那一块黑底
+显示 FPS / 帧间隔 / GPU 时间的方框，就是系统自带的。
+
+### 为什么需要它
+
+iOS 设置里 **开发者 → 显示图形 HUD** 这个开关，对 App Store 应用**完全无效**：
+
+| | 设置里的开关 | 本项目注入的环境变量 |
+| --- | --- | --- |
+| 生效条件 | 只对带 `get-task-allow` 权限的进程 | 进程启动时读取，**不检查签名** |
+| **App Store 应用** | ❌ 无效 | ✅ 有效 |
+| Xcode 调试构建 | ✅ | ✅ |
+| 自签应用 | ✅ | ✅ |
+
+App Store 应用没有 `get-task-allow`（这是 Xcode 调试权限），所以那个开关对它们
+永远不生效。这不是操作问题，是机制问题。
+
+而 Metal 运行时在进程启动时会读环境变量，这条路径**不看签名**：
 
 | 变量 | 作用 |
 | --- | --- |
 | `MTL_HUD_ENABLED` | `1` 打开 HUD |
 | `MTL_HUD_SCALE` | HUD 缩放，例如 `0.35` |
-| `MTL_HUD_ALIGNMENT` | 对齐方式，例如 `top-right` |
+| `MTL_HUD_ALIGNMENT` | 对齐方式，例如 `topright` |
 | `MTL_HUD_LOG_ENABLED` | `1` 同时把 HUD 数据写进日志 |
 
-只要能在启动目标进程时把这些变量塞进去，HUD 就会出来。本项目就是干这个的：
+**只要能在启动目标进程时把这些变量塞进去，HUD 就会出来。** 本项目就是干这个的。
+
+### 它是怎么做到的
+
+关键在于「不经过电脑」这件事本身：
 
 1. 应用在你自己的设备上运行，通过一个 **回环 VPN**（LocalDevVPN / SideStore 的 WireGuard）
    访问设备自身的 RSD（Remote Service Discovery）端口；
@@ -52,7 +73,9 @@ iOS 设置里 **开发者 → 显示图形 HUD** 这个开关只对带 `get-task
    把 `environmentVariables` 一起传过去；
 4. 目标应用带着 HUD 启动。
 
-这条链路上 Xcode 用的是 `devicectl device process launch -e`，而 `devicectl` 只有 macOS 有
+整条链路都在设备内部完成，**电脑只是用来构建 IPA 的**（而且 CI 也能构建）。
+
+Xcode 用的是 `devicectl device process launch -e`，而 `devicectl` 只有 macOS 有
 ——所以才需要"在设备上自己跑一个客户端"。
 
 ## 和参考项目的关系
@@ -62,8 +85,21 @@ iOS 设置里 **开发者 → 显示图形 HUD** 这个开关只对带 `get-task
 | [wurezhwe/iOS-MetalHUD-Launcher](https://github.com/wurezhwe/iOS-MetalHUD-Launcher) | `MTL_HUD_*` 环境变量清单、`launch --env` 这条思路、游戏类应用的启发式判断 |
 | [Mak5er/AirCard-iOS](https://github.com/Mak5er/AirCard-iOS) | 设备内 RPPairing host（在设置里配对）、回环隧道路由与候选网关扫描、`idevice` 的 RSD/CoreDevice 调用方式 |
 
-区别在于：前者必须在 **Windows 上插数据线**用 `pymobiledevice3` 启动；本项目**全程在设备上**完成
-（配对 → 隧道 → 启动），产物是一个 IPA。
+### 和 Windows 那套有什么区别
+
+Windows 上有一个同思路的姊妹项目
+（[iOS-MetalHUD-Launcher](https://github.com/wurezhwe/iOS-MetalHUD-Launcher)），
+用 USB + `pymobiledevice3` 启动，**需要插着电脑**。
+
+| | 本项目（设备端） | Windows 版 |
+| --- | --- | --- |
+| 电脑 | 不用 | 需要插 USB |
+| 怎么装 | IPA 装到设备上 | Windows 跑 Python 脚本 |
+| 配对 | 设置里点一下（iOS 27） | 导入配对文件 |
+| 能用吗 | 脱离电脑也能用 | 得一直连着电脑 |
+
+一句话区别：前者必须在 **Windows 上插数据线**用 `pymobiledevice3` 启动；
+本项目**全程在设备上**完成（配对 → 隧道 → 启动），产物是一个 IPA。
 
 ## 构建
 
