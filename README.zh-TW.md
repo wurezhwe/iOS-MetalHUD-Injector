@@ -22,10 +22,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/hud-zenless-zone-zero.webp" alt="絕區零中的 Metal 效能 HUD" width="820">
+  <img src="docs/launcher-main.webp" alt="Metal HUD 啟動器主畫面" width="420">
 </p>
 
-<p align="center"><sub>絕區零：<code>59.98 FPS</code>，畫格間隔 <code>16.67ms</code>，GPU <code>4.25ms</code></sub></p>
+<p align="center"><sub>啟動器主畫面：配對記錄、HUD 設定、已安裝應用程式與通道記錄都在同一屏</sub></p>
 
 ---
 
@@ -162,14 +162,6 @@ iOS 27 起，App 可以反過來扮演「可配對的主機」，讓你在設定
 所以幾百個應用程式下打字不會卡頓。
 
 ## 畫面
-
-### 啟動器
-
-<p align="center">
-  <img src="docs/launcher-main.webp" alt="Metal HUD 啟動器主畫面" width="400">
-</p>
-
-<p align="center"><sub>配對記錄、HUD 設定、已安裝應用程式與通道記錄都在同一屏</sub></p>
 
 ### 注入結果
 

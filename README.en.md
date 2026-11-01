@@ -23,10 +23,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/hud-zenless-zone-zero.webp" alt="Metal performance HUD in Zenless Zone Zero" width="820">
+  <img src="docs/launcher-main.webp" alt="Metal HUD launcher main screen" width="420">
 </p>
 
-<p align="center"><sub>Zenless Zone Zero: <code>59.98 FPS</code>, frame interval <code>16.67ms</code>, GPU <code>4.25ms</code></sub></p>
+<p align="center"><sub>The launcher: pairing record, HUD options, installed apps and the tunnel log on one screen</sub></p>
 
 ---
 
@@ -180,14 +180,6 @@ The conversion happens **once**, when the app list loads (not on every
 keystroke), and typing itself is debounced — so a few hundred apps stay smooth.
 
 ## Screenshots
-
-### The launcher
-
-<p align="center">
-  <img src="docs/launcher-main.webp" alt="Metal HUD launcher main screen" width="400">
-</p>
-
-<p align="center"><sub>Pairing record, HUD options, installed apps and the tunnel log all live on one screen</sub></p>
 
 ### After a launch
 
