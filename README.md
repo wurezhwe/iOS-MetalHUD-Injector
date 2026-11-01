@@ -21,6 +21,12 @@
   </a>
 </p>
 
+<p align="center">
+  <img src="docs/hud-zenless-zone-zero.webp" alt="绝区零 中的 Metal 性能 HUD" width="820">
+</p>
+
+<p align="center"><sub>绝区零：<code>59.98 FPS</code>，帧间隔 <code>16.67ms</code>，GPU <code>4.25ms</code></sub></p>
+
 ---
 
 ## 这是什么
@@ -154,6 +160,38 @@ iOS 27 起，App 可以反过来扮演"可配对的主机"，让你在设置里�
 
 转换在应用列表加载时**一次性**完成（不是每次按键），输入本身也是防抖的，
 所以几百个应用下打字不会卡顿。
+
+## 截图
+
+### 启动器
+
+<p align="center">
+  <img src="docs/launcher-main.webp" alt="Metal HUD 启动器主界面" width="400">
+</p>
+
+<p align="center"><sub>配对记录、HUD 配置、已安装应用与隧道日志都在一屏里</sub></p>
+
+### 注入结果
+
+<p align="center">
+  <img src="docs/launcher-injected.webp" alt="Metal HUD 注入成功提示" width="820">
+</p>
+
+<p align="center"><sub>点播放按钮后，目标应用带 HUD 启动</sub></p>
+
+### HUD 实况
+
+<p align="center">
+  <img src="docs/hud-zenless-zone-zero.webp" alt="绝区零中的 Metal 性能 HUD" width="820">
+</p>
+
+<p align="center"><sub>绝区零：<code>59.98 FPS</code>，帧间隔 <code>16.67ms</code>，GPU <code>4.25ms</code></sub></p>
+
+<p align="center">
+  <img src="docs/hud-hotta-studio.webp" alt="HOTTA STUDIO 游戏中的 Metal 性能 HUD" width="820">
+</p>
+
+<p align="center"><sub>另一款游戏：<code>42.46 FPS</code>，帧间隔 <code>23.55ms</code>，GPU <code>0.37ms</code>（游戏模式已开启）</sub></p>
 
 ## 界面
 
@@ -309,6 +347,7 @@ DVT → CoreDevice → InstallationProxy 的顺序自动回退，不需要手动
 │   ├── make_icon.py               # 生成图标
 │   ├── check_readmes.py           # 校验三份 README 的完整性
 │   └── check_locales.py           # 校验简繁用字不串
+├── docs/                          # README 用的截图
 ├── README.md                      # 简体中文
 ├── README.en.md                   # English
 ├── README.zh-TW.md                # 繁體中文

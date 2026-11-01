@@ -22,6 +22,12 @@
   </a>
 </p>
 
+<p align="center">
+  <img src="docs/hud-zenless-zone-zero.webp" alt="Metal performance HUD in Zenless Zone Zero" width="820">
+</p>
+
+<p align="center"><sub>Zenless Zone Zero: <code>59.98 FPS</code>, frame interval <code>16.67ms</code>, GPU <code>4.25ms</code></sub></p>
+
 ---
 
 ## What this is
@@ -172,6 +178,38 @@ All of these forms match:
 
 The conversion happens **once**, when the app list loads (not on every
 keystroke), and typing itself is debounced — so a few hundred apps stay smooth.
+
+## Screenshots
+
+### The launcher
+
+<p align="center">
+  <img src="docs/launcher-main.webp" alt="Metal HUD launcher main screen" width="400">
+</p>
+
+<p align="center"><sub>Pairing record, HUD options, installed apps and the tunnel log all live on one screen</sub></p>
+
+### After a launch
+
+<p align="center">
+  <img src="docs/launcher-injected.webp" alt="Metal HUD injection confirmation" width="820">
+</p>
+
+<p align="center"><sub>Tap the play button and the target app starts with the HUD injected</sub></p>
+
+### The HUD in action
+
+<p align="center">
+  <img src="docs/hud-zenless-zone-zero.webp" alt="Metal performance HUD in Zenless Zone Zero" width="820">
+</p>
+
+<p align="center"><sub>Zenless Zone Zero: <code>59.98 FPS</code>, frame interval <code>16.67ms</code>, GPU <code>4.25ms</code></sub></p>
+
+<p align="center">
+  <img src="docs/hud-hotta-studio.webp" alt="Metal performance HUD in HOTTA STUDIO" width="820">
+</p>
+
+<p align="center"><sub>Another game: <code>42.46 FPS</code>, frame interval <code>23.55ms</code>, GPU <code>0.37ms</code> (game mode on)</sub></p>
 
 ## Interface
 
@@ -341,6 +379,7 @@ The three modules in `rust-core`:
 │   ├── make_icon.py               # generate the app icon
 │   ├── check_readmes.py           # validate all three READMEs
 │   └── check_locales.py           # ensure zh-CN/zh-TW don't leak into each other
+├── docs/                          # screenshots used by the READMEs
 ├── README.md                      # 简体中文
 ├── README.en.md                   # English
 ├── README.zh-TW.md                # 繁體中文
