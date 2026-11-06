@@ -65,7 +65,16 @@ enum MetalHUD {
 
     // MARK: - Named element layouts
 
-    /// Preset bundles accepted by `MTL_HUD_ELEMENTS` (`Lite` is the default).
+    /// Presets for `MTL_HUD_ELEMENTS`.
+    ///
+    /// The man page documents named layouts (`Lite`, `FPS`, `Default`, `Rich`,
+    /// `Full`), but on iOS 27 passing a bare name does not reliably produce a
+    /// populated overlay - several of them render as an empty bar. So instead of
+    /// forwarding the name, each preset is expanded into an explicit
+    /// comma-separated metric list, which the runtime does honour.
+    ///
+    /// `lite` deliberately expands to `nil`: it *is* the runtime default, and
+    /// emitting nothing is both cheaper and guaranteed to match Apple's layout.
     enum Layout: String, CaseIterable, Identifiable {
         case lite = "Lite"
         case fps = "FPS"
@@ -74,6 +83,28 @@ enum MetalHUD {
         case full = "Full"
 
         var id: String { rawValue }
+
+        /// Metrics to emit, or `nil` to leave `MTL_HUD_ELEMENTS` unset.
+        var metrics: [Metric]? {
+            switch self {
+            case .lite:
+                // Runtime default; don't fight it.
+                return nil
+            case .fps:
+                return [.fps]
+            case .standard:
+                // What the stock HUD shows: device line on top, timing below.
+                return [.device, .layersize, .memory,
+                        .fps, .gputime, .frameinterval, .frameintervalgraph]
+            case .rich:
+                return [.device, .layersize, .layerscale, .memory, .thermal,
+                        .fps, .fpsgraph, .gputime, .presentdelay,
+                        .frameinterval, .frameintervalgraph,
+                        .frameintervalhistogram, .framenumber, .metalcpu]
+            case .full:
+                return Metric.allCases
+            }
+        }
 
         var localizationKey: L10n.Key {
             switch self {
@@ -234,14 +265,16 @@ struct HUDConfiguration: Equatable {
             env["MTL_HUD_POSITION_Y"] = String(y)
         }
 
+        // Emit an explicit metric list rather than a named layout: the named
+        // presets render as an empty bar on iOS 27 (see Layout.metrics).
+        let selected: [MetalHUD.Metric]
         if !customMetrics.isEmpty {
-            // Stable order so the log line doesn't churn between launches.
-            let names = customMetrics
-                .sorted { $0.rawValue < $1.rawValue }
-                .map(\.rawValue)
-            env["MTL_HUD_ELEMENTS"] = names.joined(separator: ",")
-        } else if layout != MetalHUD.defaultLayout {
-            env["MTL_HUD_ELEMENTS"] = layout.rawValue
+            selected = customMetrics.sorted { $0.rawValue < $1.rawValue }
+        } else {
+            selected = layout.metrics ?? []
+        }
+        if !selected.isEmpty {
+            env["MTL_HUD_ELEMENTS"] = selected.map(\.rawValue).joined(separator: ",")
         }
 
         if encoderTiming {

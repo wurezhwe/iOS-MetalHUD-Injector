@@ -77,12 +77,43 @@ struct HUDConfigTest {
         check(tunedEnv["MTL_HUD_OPACITY"] == "0.50",
               "expected MTL_HUD_OPACITY=0.50, got \(tunedEnv["MTL_HUD_OPACITY"] ?? "nil")", &failures)
 
-        // 6. A named layout is emitted as-is; explicit metrics win over the layout.
-        var layout = HUDConfiguration()
-        layout.layout = .rich
-        check(layout.environment()["MTL_HUD_ELEMENTS"] == "Rich",
-              "expected MTL_HUD_ELEMENTS=Rich", &failures)
+        // 6. Named layouts expand to explicit metric lists. Passing the bare
+        //    name renders as an empty bar on iOS 27, so no preset may emit one.
+        var rich = HUDConfiguration()
+        rich.layout = .rich
+        let richValue = rich.environment()["MTL_HUD_ELEMENTS"] ?? ""
+        check(!richValue.isEmpty, "rich layout must emit a metric list", &failures)
+        check(richValue != "Rich", "must not forward the bare layout name", &failures)
+        check(richValue.contains("gputime"), "rich layout should include gputime", &failures)
 
+        var std = HUDConfiguration()
+        std.layout = .standard
+        let stdValue = std.environment()["MTL_HUD_ELEMENTS"] ?? ""
+        check(stdValue.contains("fps"), "default layout must include fps", &failures)
+        check(stdValue.contains("gputime"), "default layout must include gputime", &failures)
+        check(stdValue.contains("frameintervalgraph"),
+              "default layout must include the frame interval graph", &failures)
+
+        var fpsOnly = HUDConfiguration()
+        fpsOnly.layout = .fps
+        check(fpsOnly.environment()["MTL_HUD_ELEMENTS"] == "fps",
+              "FPS layout must emit exactly 'fps'", &failures)
+
+        // Lite is the runtime default: emit nothing rather than fight it.
+        var lite = HUDConfiguration()
+        lite.layout = .lite
+        check(lite.environment()["MTL_HUD_ELEMENTS"] == nil,
+              "lite layout must not set MTL_HUD_ELEMENTS", &failures)
+
+        // Full covers every metric.
+        var full = HUDConfiguration()
+        full.layout = .full
+        let fullValue = full.environment()["MTL_HUD_ELEMENTS"] ?? ""
+        check(fullValue.split(separator: ",").count == MetalHUD.Metric.allCases.count,
+              "full layout must list all \(MetalHUD.Metric.allCases.count) metrics, got "
+              + "\(fullValue.split(separator: ",").count)", &failures)
+
+        // Explicit metrics win over the layout.
         var metrics = HUDConfiguration()
         metrics.layout = .rich
         metrics.customMetrics = [.fps, .gputime, .frameintervalhistogram]

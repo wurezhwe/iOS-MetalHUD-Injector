@@ -53,6 +53,18 @@ enum L10n {
         case importPairingFile
         case pairStatusIdle
         case pairFirst
+        case pairStep1Title
+        case pairStep1Body
+        case pairStep2Title
+        case pairStep2Body
+        case pairStep3Title
+        case pairStep3Body
+        case pairHaveFile
+        case pairHaveFileBody
+        case pairOpenSettings
+        case pairWaiting
+        case pairShowGuide
+        case pairHideGuide
         // HUD basics
         case hudSection
         case hudEnable
@@ -177,6 +189,26 @@ enum L10n {
         .importPairingFile: "Import pairing file",
         .pairStatusIdle: "Not paired yet",
         .pairFirst: "Pair with this device first.",
+        .pairStep1Title: "1. Turn on Developer Mode",
+        .pairStep1Body: """
+        Settings > Privacy & Security > Developer Mode > On, then restart the device. The pairing option only appears after that.
+        """,
+        .pairStep2Title: "2. Start the host and note the PIN",
+        .pairStep2Body: """
+        Tap Start pairing host below. A 6-digit PIN appears; keep this screen open.
+        """,
+        .pairStep3Title: "3. Approve the PIN in Settings",
+        .pairStep3Body: """
+        Settings > Privacy & Security > Developer Mode > Pair with MetalHUD, then enter the PIN. Come back here when it finishes.
+        """,
+        .pairHaveFile: "Already have a pairing file?",
+        .pairHaveFileBody: """
+        Import one from SideStore, LiveContainer or a computer instead of pairing here. On iOS 18-26 this is the only option.
+        """,
+        .pairOpenSettings: "Open Settings",
+        .pairWaiting: "Waiting for the device…",
+        .pairShowGuide: "Show guide",
+        .pairHideGuide: "Hide guide",
 
         // HUD basics
         .hudSection: "Metal HUD",
@@ -292,6 +324,18 @@ enum L10n {
         .importPairingFile: "导入配对文件",
         .pairStatusIdle: "尚未配对",
         .pairFirst: "请先配对本机。",
+        .pairStep1Title: "① 打开开发者模式",
+        .pairStep1Body: "设置 › 隐私与安全性 › 开发者模式 › 打开，然后重启设备。配对入口在重启后才会出现。",
+        .pairStep2Title: "② 启动主机并记下 PIN",
+        .pairStep2Body: "点下面的「启动配对主机」，屏幕会出现 6 位 PIN，保持本页面不要退出。",
+        .pairStep3Title: "③ 在设置里批准 PIN",
+        .pairStep3Body: "设置 › 隐私与安全性 › 开发者模式 › 与 MetalHUD 配对，输入 PIN。完成后回到这里。",
+        .pairHaveFile: "已经有配对文件了？",
+        .pairHaveFileBody: "可以从 SideStore、LiveContainer 或电脑生成的文件导入，不必在这里配对。iOS 18-26 只能走这条路。",
+        .pairOpenSettings: "打开设置",
+        .pairWaiting: "正在等待设备…",
+        .pairShowGuide: "查看步骤",
+        .pairHideGuide: "收起步骤",
 
         // HUD basics
         .hudSection: "Metal HUD",
@@ -405,6 +449,18 @@ enum L10n {
         .importPairingFile: "匯入配對檔",
         .pairStatusIdle: "尚未配對",
         .pairFirst: "請先配對本機。",
+        .pairStep1Title: "① 開啟開發者模式",
+        .pairStep1Body: "設定 › 隱私權與安全性 › 開發者模式 › 開啟，然後重新啟動裝置。配對入口在重新啟動後才會出現。",
+        .pairStep2Title: "② 啟動主機並記下 PIN",
+        .pairStep2Body: "點下面的「啟動配對主機」，畫面會出現 6 位數 PIN，保持本頁面不要退出。",
+        .pairStep3Title: "③ 在設定裡批准 PIN",
+        .pairStep3Body: "設定 › 隱私權與安全性 › 開發者模式 › 與 MetalHUD 配對，輸入 PIN。完成後回到這裡。",
+        .pairHaveFile: "已經有配對檔了？",
+        .pairHaveFileBody: "可以從 SideStore、LiveContainer 或電腦產生的檔案匯入，不必在這裡配對。iOS 18-26 只能走這條路。",
+        .pairOpenSettings: "開啟設定",
+        .pairWaiting: "正在等待裝置…",
+        .pairShowGuide: "查看步驟",
+        .pairHideGuide: "收起步驟",
 
         // HUD basics
         .hudSection: "Metal HUD",

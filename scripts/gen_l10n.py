@@ -54,6 +54,41 @@ group("Pairing", [
     ("importPairingFile", "Import pairing file", "导入配对文件", "匯入配對檔"),
     ("pairStatusIdle", "Not paired yet", "尚未配对", "尚未配對"),
     ("pairFirst", "Pair with this device first.", "请先配对本机。", "請先配對本機。"),
+
+    # --- guided steps -----------------------------------------------------
+    ("pairStep1Title", "1. Turn on Developer Mode",
+     "① 打开开发者模式", "① 開啟開發者模式"),
+    ("pairStep1Body",
+     "Settings > Privacy & Security > Developer Mode > On, then restart the "
+     "device. The pairing option only appears after that.",
+     "设置 › 隐私与安全性 › 开发者模式 › 打开，然后重启设备。配对入口在重启后才会出现。",
+     "設定 › 隱私權與安全性 › 開發者模式 › 開啟，然後重新啟動裝置。配對入口在重新啟動後才會出現。"),
+    ("pairStep2Title", "2. Start the host and note the PIN",
+     "② 启动主机并记下 PIN", "② 啟動主機並記下 PIN"),
+    ("pairStep2Body",
+     "Tap Start pairing host below. A 6-digit PIN appears; keep this screen open.",
+     "点下面的「启动配对主机」，屏幕会出现 6 位 PIN，保持本页面不要退出。",
+     "點下面的「啟動配對主機」，畫面會出現 6 位數 PIN，保持本頁面不要退出。"),
+    ("pairStep3Title", "3. Approve the PIN in Settings",
+     "③ 在设置里批准 PIN", "③ 在設定裡批准 PIN"),
+    ("pairStep3Body",
+     "Settings > Privacy & Security > Developer Mode > Pair with MetalHUD, then "
+     "enter the PIN. Come back here when it finishes.",
+     "设置 › 隐私与安全性 › 开发者模式 › 与 MetalHUD 配对，输入 PIN。完成后回到这里。",
+     "設定 › 隱私權與安全性 › 開發者模式 › 與 MetalHUD 配對，輸入 PIN。完成後回到這裡。"),
+    ("pairHaveFile", "Already have a pairing file?",
+     "已经有配对文件了？", "已經有配對檔了？"),
+    ("pairHaveFileBody",
+     "Import one from SideStore, LiveContainer or a computer instead of pairing "
+     "here. On iOS 18-26 this is the only option.",
+     "可以从 SideStore、LiveContainer 或电脑生成的文件导入，不必在这里配对。"
+     "iOS 18-26 只能走这条路。",
+     "可以從 SideStore、LiveContainer 或電腦產生的檔案匯入，不必在這裡配對。"
+     "iOS 18-26 只能走這條路。"),
+    ("pairOpenSettings", "Open Settings", "打开设置", "開啟設定"),
+    ("pairWaiting", "Waiting for the device…", "正在等待设备…", "正在等待裝置…"),
+    ("pairShowGuide", "Show guide", "查看步骤", "查看步驟"),
+    ("pairHideGuide", "Hide guide", "收起步骤", "收起步驟"),
 ])
 
 group("HUD basics", [

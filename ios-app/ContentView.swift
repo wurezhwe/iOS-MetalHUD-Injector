@@ -8,9 +8,11 @@ struct ContentView: View {
     @ObservedObject private var languages = LanguageStore.shared
 
     @State private var showingImporter = false
-    /// Disclosure state for the two collapsible HUD sections.
+    /// Disclosure state for the collapsible sections.
     @State private var showMetrics = false
     @State private var showAdvanced = false
+    /// The pairing guide starts expanded: a first-time user needs it.
+    @State private var showPairGuide = true
 
     private func t(_ key: L10n.Key) -> String { languages.string(key) }
 
@@ -161,20 +163,70 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            // --- the PIN, front and centre ------------------------------
             if let pin = pairing.pin {
-                HStack {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(t(.pin))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(pin)
-                        .font(.system(.title2, design: .monospaced).weight(.bold))
+                        .font(.system(size: 34, weight: .bold, design: .monospaced))
                         .foregroundStyle(Theme.accent)
                         .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    Text(t(.pairStep2Body))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(14)
+                .background(Theme.accentWash, in: RoundedRectangle(cornerRadius: 14))
+            }
+
+            // --- guided steps -------------------------------------------
+            DisclosureGroup(isExpanded: $showPairGuide) {
+                VStack(alignment: .leading, spacing: 12) {
+                    pairingStep(index: 1,
+                                title: t(.pairStep1Title),
+                                body: t(.pairStep1Body),
+                                actionTitle: t(.pairOpenSettings),
+                                action: openDeveloperSettings)
+
+                    pairingStep(index: 2,
+                                title: t(.pairStep2Title),
+                                body: t(.pairStep2Body),
+                                actionTitle: nil,
+                                action: nil)
+
+                    pairingStep(index: 3,
+                                title: t(.pairStep3Title),
+                                body: t(.pairStep3Body),
+                                actionTitle: nil,
+                                action: nil)
+
+                    Divider().overlay(Theme.separator)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(t(.pairHaveFile))
+                            .font(.caption.weight(.semibold))
+                        Text(t(.pairHaveFileBody))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.top, 10)
+            } label: {
+                HStack {
+                    Label(t(showPairGuide ? .pairHideGuide : .pairShowGuide),
+                          systemImage: "list.number")
+                        .font(.caption.weight(.medium))
                     Spacer()
                 }
-                .padding(10)
-                .background(Theme.accentWash, in: RoundedRectangle(cornerRadius: 12))
+                .foregroundStyle(Theme.accent)
             }
+            .tint(Theme.accent)
 
             Text(pairing.status)
                 .font(.caption2)
@@ -196,6 +248,15 @@ struct ContentView: View {
                     showingImporter = true
                 }
             }
+
+            if pairing.running {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text(t(.pairWaiting))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .glassCard()
         .fileImporter(
@@ -207,6 +268,57 @@ struct ContentView: View {
                 model.importPairingFile(url)
             }
         }
+    }
+
+    /// One numbered step, with an optional jump button.
+    private func pairingStep(
+        index: Int,
+        title: String,
+        body: String,
+        actionTitle: String?,
+        action: (() -> Void)?
+    ) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text("\(index)")
+                .font(.caption.weight(.bold).monospacedDigit())
+                .foregroundStyle(Theme.accent)
+                .frame(width: 22, height: 22)
+                .background(Theme.accentWash, in: Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                Text(body)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let actionTitle, let action {
+                    Button(actionTitle, action: action)
+                        .font(.caption2.weight(.medium))
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Theme.accent)
+                        .padding(.top, 2)
+                }
+            }
+        }
+    }
+
+    /// Jump straight to the Developer Mode pane; a user who has never been there
+    /// has no idea how deep the path is.
+    private func openDeveloperSettings() {
+        let candidates = [
+            "App-Prefs:Privacy&path=PROFILE",
+            "App-Prefs:Privacy",
+            UIApplication.openSettingsURLString,
+        ]
+        for string in candidates {
+            guard let url = URL(string: string) else { continue }
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+                return
+            }
+        }
+        UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
     }
 
     // MARK: - HUD settings
@@ -403,7 +515,7 @@ struct ContentView: View {
                     }
                 )) {
                     Text(t(metric.localizationKey))
-                        .font(.caption)
+                        .font(.subheadline)
                 }
                 .padding(.vertical, 5)
                 rowDivider
@@ -510,14 +622,19 @@ struct ContentView: View {
             HStack {
                 Text(t(.installedApps)).font(.subheadline.weight(.semibold))
                 Spacer()
-                Toggle(t(.showOnlyGames), isOn: $model.gamesOnly)
-                    .font(.caption2)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .scaleEffect(0.8)
                 Text("\(model.visibleApps.count)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+            }
+
+            // Kept on its own row with a visible label: as a bare switch next to
+            // the title it was impossible to tell what it did.
+            HStack(spacing: 8) {
+                Toggle(t(.showOnlyGames), isOn: $model.gamesOnly)
+                    .font(.caption)
+                    .toggleStyle(.switch)
+                    .fixedSize()
+                Spacer()
             }
 
             GlassSearchField(text: $model.searchText,

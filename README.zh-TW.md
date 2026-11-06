@@ -110,7 +110,7 @@ Actions → Build IPA → Run workflow
 ```
 
 建置成功後 `Release IPA` 會自動把產物發佈到 [Releases](../../releases)，標籤就是
-`project.yml` 裡的 `MARKETING_VERSION`（目前 **v1.3.0**）：
+`project.yml` 裡的 `MARKETING_VERSION`（目前 **v1.4.0**）：
 
 ```
 https://github.com/wurezhwe/iOS-MetalHUD-Injector/releases/latest/download/MetalHUDLauncher.ipa
