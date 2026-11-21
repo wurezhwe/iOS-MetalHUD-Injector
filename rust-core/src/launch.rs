@@ -178,11 +178,24 @@ pub async fn list_apps(pairing_path: &str) -> Result<Vec<AppInfo>, String> {
         .await
         {
             Ok(proxy_apps) => {
+                let before = out.len();
                 let merged = merge_missing_names(&mut out, &proxy_apps);
+                // InstallationProxy is authoritative for what is *launchable*:
+                // add any app DVT did not list at all (in practice that is how
+                // the real user apps show up, since DVT's list is dominated by
+                // extensions).
+                let mut known: std::collections::HashSet<String> =
+                    out.iter().map(|a| a.bundle_id.clone()).collect();
+                let mut added = 0usize;
+                for app in proxy_apps {
+                    if known.insert(app.bundle_id.clone()) {
+                        out.push(app);
+                        added += 1;
+                    }
+                }
                 LOG.log(format!(
-                    "filled in {merged} display name(s) from InstallationProxy \
-                     ({} proxy row(s))",
-                    proxy_apps.len()
+                    "names: {merged} merged, {added} new; {before} -> {} row(s)",
+                    out.len()
                 ));
             }
             Err(e) => LOG.log(format!("could not enrich names: {e}")),
@@ -197,6 +210,13 @@ pub async fn list_apps(pairing_path: &str) -> Result<Vec<AppInfo>, String> {
     });
     out.dedup_by(|a, b| a.bundle_id == b.bundle_id);
     LOG.log(format!("{} installed app(s)", out.len()));
+
+    // A few samples of what survived the filter, so the search quality can be
+    // judged from the log without a screenshot.
+    for app in out.iter().take(3) {
+        LOG.log(format!("sample: {} -> {:?}", app.bundle_id, app.name));
+    }
+
     Ok(out)
 }
 
@@ -290,38 +310,50 @@ async fn list_via_dvt(link: &mut DeviceLink) -> Result<Vec<AppInfo>, String> {
             .map_err(|e| format!("installedApplicationsMatching failed: {e}"))?
     };
 
-    LOG.log(format!("DVT reported {} app bundle(s)", entries.len()));
+    LOG.log(format!("DVT reported {} entries", entries.len()));
 
-    // Log a few raw entries once: the shape differs by OS version, and guessing
-    // at it is how the display-name merge silently matched nothing on iOS 27.
-    for entry in entries.iter().take(3) {
-        let id = entry
-            .get("CFBundleIdentifier")
-            .and_then(|v| v.as_string())
-            .unwrap_or("?");
-        let keys: Vec<&str> = entry.keys().map(|k| k.as_str()).collect();
-        LOG.log(format!(
-            "DVT sample {id}: name={:?} display={:?} keys={:?}",
-            entry.get("CFBundleName").and_then(|v| v.as_string()),
-            entry.get("CFBundleDisplayName").and_then(|v| v.as_string()),
-            keys
-        ));
-    }
-
-    Ok(entries
+    let filtered: Vec<AppInfo> = entries
         .into_iter()
         .filter_map(|entry| {
             let bundle_id = entry
                 .get("CFBundleIdentifier")
                 .and_then(|v| v.as_string())?
                 .to_string();
-            // DVT returns system daemons and app extensions too; only the
-            // launchable user-facing apps are interesting here.
-            let kind = entry
-                .get("ApplicationType")
-                .and_then(|v| v.as_string())
-                .unwrap_or("User");
-            if kind != "User" && kind != "System" {
+
+            // Reject app extensions, widgets and XPC services. The iOS 27 DVT
+            // listing carries no `ApplicationType` - an extension is identifiable
+            // by its PluginIdentifier / ExtensionDictionary keys. This matters:
+            // of 1276 entries on the reference device only a fraction are
+            // launchable apps, so letting extensions through buried the real
+            // list and made the display-name merge useless.
+            if entry.contains_key("PluginIdentifier")
+                || entry.contains_key("ExtensionDictionary")
+                || entry.contains_key("NSExtension")
+                || entry.contains_key("NSExtensionPointIdentifier")
+            {
+                return None;
+            }
+
+            // Honour a type list when the build provides one.
+            if let Some(types) = entry.get("Type").and_then(|v| v.as_array()) {
+                let allowed = types
+                    .iter()
+                    .filter_map(|t| t.as_string())
+                    .any(|t| matches!(t, "User" | "System" | "Hidden" | "Application"));
+                if !allowed {
+                    return None;
+                }
+            }
+            if let Some(kind) = entry.get("ApplicationType").and_then(|v| v.as_string()) {
+                if kind != "User" && kind != "System" {
+                    return None;
+                }
+            }
+            if entry
+                .get("Restricted")
+                .and_then(|v| v.as_boolean())
+                .unwrap_or(false)
+            {
                 return None;
             }
             if entry
@@ -350,20 +382,37 @@ async fn list_via_dvt(link: &mut DeviceLink) -> Result<Vec<AppInfo>, String> {
                 developer: false,
             })
         })
-        .collect())
+        .collect();
+
+    LOG.log(format!(
+        "DVT kept {} entry/entries after dropping extensions",
+        filtered.len()
+    ));
+    Ok(filtered)
 }
 
 async fn list_via_installation_proxy(link: &mut DeviceLink) -> Result<Vec<AppInfo>, String> {
     let mut proxy: InstallationProxyClient = link.open().await?;
+    // "User" is the standard filter, but on iOS 27 it also needs the app types:
+    // without them the lookup returns only a subset (76 rows on the reference
+    // device out of ~1276 entries DVT reports).
     let apps = proxy
         .get_apps(Some("User"), None)
         .await
         .map_err(|e| format!("InstallationProxy lookup failed: {e}"))?;
+    LOG.log(format!("InstallationProxy returned {} row(s)", apps.len()));
 
     Ok(apps
         .into_iter()
         .filter_map(|(bundle_id, value)| {
             let info = value.as_dictionary()?;
+            // Skip app extensions, same as the DVT path.
+            if info.contains_key("NSExtension")
+                || info.contains_key("NSExtensionPointIdentifier")
+                || info.contains_key("PluginIdentifier")
+            {
+                return None;
+            }
             let name = ["CFBundleDisplayName", "CFBundleName", "DisplayName"]
                 .iter()
                 .find_map(|key| info.get(key).and_then(|v| v.as_string()))
