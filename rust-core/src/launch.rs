@@ -20,6 +20,7 @@
 //!   2. the DVT `processcontrol` service, for devices/builds where the
 //!      coredevice app service is missing.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use idevice::services::core_device::AppServiceClient;
@@ -107,43 +108,82 @@ fn args_dict(args: &[String]) -> Dictionary {
 /// Without this a channel that accepts the connection and then never answers
 /// leaves the whole call pending forever, which is exactly what "still trying to
 /// connect" with no further log lines looks like to the user.
-const CHANNEL_TIMEOUT: Duration = Duration::from_secs(25);
+///
+/// Kept short on purpose: CoreDevice's appservice is advertised on iOS 27 but its
+/// `listapps` never replies there, so a generous deadline just makes every
+/// refresh 25 s slower for a channel that was never going to answer.
+const CHANNEL_TIMEOUT: Duration = Duration::from_secs(8);
+
+/// Set once the CoreDevice appservice has failed to answer. It is advertised but
+/// non-functional on at least one iOS 27 build, and re-probing it on every
+/// refresh costs a full timeout each time.
+static CORE_DEVICE_APP_SERVICE_BROKEN: AtomicBool = AtomicBool::new(false);
 
 pub async fn list_apps(pairing_path: &str) -> Result<Vec<AppInfo>, String> {
     LOG.log("listing apps: connecting");
     let mut link = tunnel::connect(pairing_path).await?;
     LOG.log("listing apps: tunnel up");
 
-    let (mut out, needs_names) = match with_timeout("CoreDevice appservice", list_via_core_device(&mut link)).await {
-        Ok(apps) => {
-            LOG.log(format!("CoreDevice appservice returned {} app(s)", apps.len()));
-            (apps, false)
+    let (mut out, needs_names) = if CORE_DEVICE_APP_SERVICE_BROKEN.load(Ordering::Relaxed) {
+        LOG.log("skipping CoreDevice appservice: it did not answer earlier in this session");
+        match with_timeout("DVT applicationListing", list_via_dvt(&mut link)).await {
+            Ok(apps) => (apps, true),
+            Err(dvt_error) => {
+                LOG.log(format!("DVT application listing failed: {dvt_error}"));
+                (
+                    with_timeout("InstallationProxy", list_via_installation_proxy(&mut link))
+                        .await?,
+                    false,
+                )
+            }
         }
-        Err(core_error) => {
-            LOG.log(format!("CoreDevice appservice unavailable: {core_error}"));
-            match with_timeout("DVT applicationListing", list_via_dvt(&mut link)).await {
-                Ok(apps) => {
-                    // DVT usually has no display name; we will patch them below.
-                    (apps, true)
-                }
-                Err(dvt_error) => {
-                    LOG.log(format!("DVT application listing failed: {dvt_error}"));
-                    let apps = with_timeout(
-                        "InstallationProxy",
-                        list_via_installation_proxy(&mut link),
-                    )
-                    .await?;
-                    (apps, false)
+    } else {
+        match with_timeout("CoreDevice appservice", list_via_core_device(&mut link)).await {
+            Ok(apps) => {
+                LOG.log(format!("CoreDevice appservice returned {} app(s)", apps.len()));
+                (apps, false)
+            }
+            Err(core_error) => {
+                CORE_DEVICE_APP_SERVICE_BROKEN.store(true, Ordering::Relaxed);
+                LOG.log(format!(
+                    "CoreDevice appservice unavailable: {core_error}; \
+                     skipping it for the rest of this session"
+                ));
+                match with_timeout("DVT applicationListing", list_via_dvt(&mut link)).await {
+                    Ok(apps) => {
+                        // DVT usually has no display name; we will patch them below.
+                        (apps, true)
+                    }
+                    Err(dvt_error) => {
+                        LOG.log(format!("DVT application listing failed: {dvt_error}"));
+                        (
+                            with_timeout(
+                                "InstallationProxy",
+                                list_via_installation_proxy(&mut link),
+                            )
+                            .await?,
+                            false,
+                        )
+                    }
                 }
             }
         }
     };
 
     if needs_names {
-        match list_via_installation_proxy(&mut link).await {
+        match with_timeout(
+            "InstallationProxy",
+            list_via_installation_proxy(&mut link),
+        )
+        .await
+        {
             Ok(proxy_apps) => {
                 let merged = merge_missing_names(&mut out, &proxy_apps);
-                LOG.log(format!("filled in {merged} display name(s) from InstallationProxy"));
+                LOG.log(format!(
+                    "filled in {merged} display name(s) from InstallationProxy \
+                     ({} proxy row(s))",
+                    proxy_apps.len()
+                ));
             }
             Err(e) => LOG.log(format!("could not enrich names: {e}")),
         }
@@ -160,13 +200,30 @@ pub async fn list_apps(pairing_path: &str) -> Result<Vec<AppInfo>, String> {
     Ok(out)
 }
 
-/// Replace placeholder names (bundle ids) with real display names.
+/// Replace placeholder names with real display names.
+///
+/// The placeholder test cannot be `name == bundle_id`: on iOS 27 the DVT listing
+/// returns neither a `CFBundleDisplayName` nor the bundle id, but a stripped
+/// stem such as `Music` for `com.apple.Music`. So a name is treated as a
+/// placeholder when it is empty, equals the bundle id, or is a suffix of the
+/// bundle id (by dot-segment, case-insensitively). Those rows get the value from
+/// InstallationProxy, which carries the localised `CFBundleDisplayName`.
 ///
 /// Returns how many rows were improved.
 fn merge_missing_names(apps: &mut [AppInfo], named: &[AppInfo]) -> usize {
+    fn looks_like_placeholder(name: &str, bundle_id: &str) -> bool {
+        if name.is_empty() || name == bundle_id {
+            return true;
+        }
+        // Compare against the last dot-segment(s) of the bundle id: `Music` for
+        // `com.apple.Music`, `MobileSMS` for `com.apple.MobileSMS`.
+        let tail = bundle_id.rsplit('.').next().unwrap_or("");
+        name.eq_ignore_ascii_case(tail)
+    }
+
     let mut fixed = 0;
     for app in apps.iter_mut() {
-        if app.name != app.bundle_id && !app.name.is_empty() {
+        if !looks_like_placeholder(&app.name, &app.bundle_id) {
             continue; // already a real name
         }
         if let Some(better) = named.iter().find(|n| n.bundle_id == app.bundle_id) {
@@ -234,6 +291,22 @@ async fn list_via_dvt(link: &mut DeviceLink) -> Result<Vec<AppInfo>, String> {
     };
 
     LOG.log(format!("DVT reported {} app bundle(s)", entries.len()));
+
+    // Log a few raw entries once: the shape differs by OS version, and guessing
+    // at it is how the display-name merge silently matched nothing on iOS 27.
+    for entry in entries.iter().take(3) {
+        let id = entry
+            .get("CFBundleIdentifier")
+            .and_then(|v| v.as_string())
+            .unwrap_or("?");
+        let keys: Vec<&str> = entry.keys().map(|k| k.as_str()).collect();
+        LOG.log(format!(
+            "DVT sample {id}: name={:?} display={:?} keys={:?}",
+            entry.get("CFBundleName").and_then(|v| v.as_string()),
+            entry.get("CFBundleDisplayName").and_then(|v| v.as_string()),
+            keys
+        ));
+    }
 
     Ok(entries
         .into_iter()

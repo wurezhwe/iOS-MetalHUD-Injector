@@ -240,12 +240,19 @@ final class AppModel: ObservableObject {
             let state = await Task.detached(priority: .utility) {
                 NetworkStatus.vpnState()
             }.value
+            // Only log transitions. This runs on every foreground and every
+            // device operation, and the same line repeated six times per refresh
+            // buries the lines that matter.
+            let wasUp = vpn.isConnected
+            let oldAddress = vpn.tunnelAddress
             vpn = state
             vpnCheckInFlight = false
-            LogCenter.shared.append(
-                "[app] vpn \(state.isConnected ? "up" : "down")"
-                + (state.tunnelAddress.map { " at \($0) (\(state.interfaceName ?? "?"))" } ?? "")
-            )
+            if wasUp != state.isConnected || oldAddress != state.tunnelAddress {
+                LogCenter.shared.append(
+                    "[app] vpn \(state.isConnected ? "up" : "down")"
+                    + (state.tunnelAddress.map { " at \($0) (\(state.interfaceName ?? "?"))" } ?? "")
+                )
+            }
         }
     }
 
