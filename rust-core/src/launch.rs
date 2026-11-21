@@ -128,11 +128,12 @@ pub async fn list_apps(pairing_path: &str) -> Result<Vec<AppInfo>, String> {
                 }
                 Err(dvt_error) => {
                     LOG.log(format!("DVT application listing failed: {dvt_error}"));
-                    with_timeout(
+                    let apps = with_timeout(
                         "InstallationProxy",
                         list_via_installation_proxy(&mut link),
                     )
-                    .await?
+                    .await?;
+                    (apps, false)
                 }
             }
         }
