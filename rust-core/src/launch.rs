@@ -20,6 +20,8 @@
 //!   2. the DVT `processcontrol` service, for devices/builds where the
 //!      coredevice app service is missing.
 
+use std::time::Duration;
+
 use idevice::services::core_device::AppServiceClient;
 use idevice::services::dvt::process_control::ProcessControlClient;
 use idevice::services::dvt::remote_server::RemoteServerClient;
@@ -100,21 +102,37 @@ fn args_dict(args: &[String]) -> Dictionary {
 /// enriched with names from (3): a DVT row whose name is just the bundle id gets
 /// replaced by the localised display name. Without that, Chinese apps are
 /// unsearchable - the list only ever contains ASCII bundle ids.
-pub async fn list_apps(pairing_path: &str) -> Result<Vec<AppInfo>, String> {
-    let mut link = tunnel::connect(pairing_path).await?;
+/// How long any single listing channel may take before we move on to the next.
+///
+/// Without this a channel that accepts the connection and then never answers
+/// leaves the whole call pending forever, which is exactly what "still trying to
+/// connect" with no further log lines looks like to the user.
+const CHANNEL_TIMEOUT: Duration = Duration::from_secs(25);
 
-    let (mut out, needs_names) = match list_via_core_device(&mut link).await {
-        Ok(apps) => (apps, false),
+pub async fn list_apps(pairing_path: &str) -> Result<Vec<AppInfo>, String> {
+    LOG.log("listing apps: connecting");
+    let mut link = tunnel::connect(pairing_path).await?;
+    LOG.log("listing apps: tunnel up");
+
+    let (mut out, needs_names) = match with_timeout("CoreDevice appservice", list_via_core_device(&mut link)).await {
+        Ok(apps) => {
+            LOG.log(format!("CoreDevice appservice returned {} app(s)", apps.len()));
+            (apps, false)
+        }
         Err(core_error) => {
             LOG.log(format!("CoreDevice appservice unavailable: {core_error}"));
-            match list_via_dvt(&mut link).await {
+            match with_timeout("DVT applicationListing", list_via_dvt(&mut link)).await {
                 Ok(apps) => {
                     // DVT usually has no display name; we will patch them below.
                     (apps, true)
                 }
                 Err(dvt_error) => {
                     LOG.log(format!("DVT application listing failed: {dvt_error}"));
-                    (list_via_installation_proxy(&mut link).await?, false)
+                    with_timeout(
+                        "InstallationProxy",
+                        list_via_installation_proxy(&mut link),
+                    )
+                    .await?
                 }
             }
         }
@@ -161,6 +179,22 @@ fn merge_missing_names(apps: &mut [AppInfo], named: &[AppInfo]) -> usize {
         }
     }
     fixed
+}
+
+/// Run one listing channel under a deadline, naming it in the error so the log
+/// says which one hung rather than just "timed out".
+async fn with_timeout<T>(
+    what: &'static str,
+    future: impl std::future::Future<Output = Result<T, String>>,
+) -> Result<T, String> {
+    match tokio::time::timeout(CHANNEL_TIMEOUT, future).await {
+        Ok(result) => result,
+        Err(_) => {
+            let message = format!("{what} did not answer within {CHANNEL_TIMEOUT:?}");
+            LOG.log(message.clone());
+            Err(message)
+        }
+    }
 }
 
 async fn list_via_core_device(link: &mut DeviceLink) -> Result<Vec<AppInfo>, String> {
@@ -287,14 +321,18 @@ pub async fn launch(pairing_path: &str, options: &LaunchOptions) -> Result<Strin
     // DVT first: `dtservicehub` is advertised on far more OS builds than the
     // coredevice app service, and its processcontrol channel takes the same
     // environment dictionary.
-    match launch_via_dvt(&mut link, options).await {
+    match with_timeout("DVT processcontrol launch", launch_via_dvt(&mut link, options)).await {
         Ok(msg) => return Ok(msg),
         Err(dvt_error) => {
             LOG.log(format!("DVT launch failed, trying CoreDevice: {dvt_error}"));
         }
     }
 
-    launch_via_core_device(&mut link, options).await
+    with_timeout(
+        "CoreDevice launch",
+        launch_via_core_device(&mut link, options),
+    )
+    .await
 }
 
 async fn launch_via_core_device(

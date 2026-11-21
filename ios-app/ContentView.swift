@@ -95,8 +95,13 @@ struct ContentView: View {
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(Theme.accent)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(t(.appTitle))
-                        .font(.headline)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(t(.appTitle))
+                            .font(.headline)
+                        Text(Bridge.appVersion)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
                     Text(t(.appSubtitle))
                         .font(.caption)
                         .foregroundStyle(.secondary)

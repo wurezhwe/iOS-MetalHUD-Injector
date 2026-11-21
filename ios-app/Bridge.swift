@@ -50,6 +50,16 @@ enum Bridge {
         mh_clear_route()
     }
 
+    /// Marketing version of the installed bundle, e.g. `1.5.3`. Shown in the UI
+    /// so a stale install is obvious at a glance - diagnosing a bug against the
+    /// wrong build wastes everyone's time.
+    static var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "\(short) (\(build))"
+    }
+
     // MARK: - Result marshalling
 
     private static func take(_ pointer: UnsafeMutablePointer<CChar>?) -> String? {
