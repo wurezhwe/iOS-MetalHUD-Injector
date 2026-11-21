@@ -30,6 +30,18 @@ final class AppModel: ObservableObject {
     @Published var lastMessage: String?
     @Published var lastScreenshot: URL?
 
+    /// Live view of the loopback VPN. Refreshed on launch, on return to the
+    /// foreground, and by the "check again" button.
+    @Published private(set) var vpn = NetworkStatus.VPNState.disconnected
+    @Published private(set) var vpnCheckInFlight = false
+
+    /// LocalDevVPN's own URL scheme, declared in Info.plist so `canOpenURL`
+    /// tells the truth instead of always returning false.
+    private static let vpnScheme = "localdevvpn://"
+    /// LocalDevVPN on the App Store. The numeric-only link redirects to the
+    /// local storefront, so no country code is baked in.
+    static let vpnStoreURL = URL(string: "https://apps.apple.com/app/id6755608044")!
+
     /// Raw text from the search field. Kept separate from `searchQuery` so that
     /// keystrokes don't drive a full re-filter on every character.
     @Published var searchText: String = "" {
@@ -51,9 +63,46 @@ final class AppModel: ObservableObject {
 
     var isPaired: Bool { PairingController.hasPairingFile }
 
+    /// Convenience so the model never hard-codes English.
+    private func s(_ key: L10n.Key) -> String {
+        LanguageStore.shared.string(key)
+    }
+
+    /// Fill `%@` / `%d` placeholders left to right.
+    ///
+    /// `String.replacingOccurrences` would replace *every* occurrence of `%@`
+    /// on each call, so a template with three placeholders would end up with
+    /// the first argument three times. This walks the template once instead.
+    static func fill(_ template: String, _ arguments: String...) -> String {
+        var result = ""
+        var rest = Substring(template)
+        var next = 0
+
+        while next < arguments.count {
+            let at = rest.range(of: "%@")
+            let digits = rest.range(of: "%d")
+            let first: Range<Substring.Index>
+            switch (at, digits) {
+            case let (a?, d?):
+                first = a.lowerBound < d.lowerBound ? a : d
+            case let (a?, nil):
+                first = a
+            case let (nil, d?):
+                first = d
+            case (nil, nil):
+                return result + rest
+            }
+            result += rest[rest.startIndex..<first.lowerBound]
+            result += arguments[next]
+            rest = rest[first.upperBound...]
+            next += 1
+        }
+        return result + rest
+    }
+
     var pairingStatus: String {
-        if isPaired { return "Paired" }
-        return pairing.running ? pairing.status : "Not paired yet"
+        if isPaired { return s(.statusPaired) }
+        return pairing.running ? pairing.status : s(.statusIdle)
     }
 
     var filteredApps: [InstalledApp] { visibleApps }
@@ -163,6 +212,7 @@ final class AppModel: ObservableObject {
         LogCenter.shared.append("[app] MetalHUD core \(Bridge.version)")
         LogCenter.shared.append("[app] interfaces: \(NetworkStatus.describe())")
         pushHosts()
+        refreshVPN()
     }
 
     /// Feed the Rust side the gateway candidates, most likely first.
@@ -171,6 +221,51 @@ final class AppModel: ObservableObject {
         let candidates = NetworkStatus.tunnelCandidates(preferred: gateway)
         LogCenter.shared.append("[app] gateway candidates: \(candidates.joined(separator: ", "))")
         Bridge.setHosts(candidates)
+    }
+
+    // MARK: - VPN
+
+    /// Re-read the interface table. Cheap (one `getifaddrs` sweep) but it does
+    /// touch the network stack, so it runs off the main actor.
+    func refreshVPN() {
+        guard !vpnCheckInFlight else { return }
+        vpnCheckInFlight = true
+        Task {
+            let state = await Task.detached(priority: .utility) {
+                NetworkStatus.vpnState()
+            }.value
+            vpn = state
+            vpnCheckInFlight = false
+            // The detected gateway is a better default than the hard-coded one.
+            if let detected = state.gateway, gateway != detected {
+                LogCenter.shared.append("[app] VPN gateway \(detected) (\(state.interfaceName ?? "?"))")
+                gateway = detected
+                pushHosts()
+            }
+        }
+    }
+
+    /// True when LocalDevVPN is installed and can be opened directly.
+    var canOpenVPN: Bool {
+        guard let url = URL(string: Self.vpnScheme) else { return false }
+        return UIApplication.shared.canOpenURL(url)
+    }
+
+    func openVPN() {
+        guard let url = URL(string: Self.vpnScheme) else {
+            openVPNStorePage()
+            return
+        }
+        UIApplication.shared.open(url, options: [:]) { opened in
+            // The scheme is declared in Info.plist, so a refusal here means the
+            // app is gone; fall back to the store instead of doing nothing.
+            guard !opened else { return }
+            Task { @MainActor in self.openVPNStorePage() }
+        }
+    }
+
+    func openVPNStorePage() {
+        UIApplication.shared.open(Self.vpnStoreURL)
     }
 
     // MARK: - Pairing
@@ -203,7 +298,7 @@ final class AppModel: ObservableObject {
             objectWillChange.send()
             Task { await refreshApps() }
         } else {
-            lastMessage = "Could not read \(url.lastPathComponent)."
+            lastMessage = Self.fill(s(.errUnreadableFile), url.lastPathComponent)
         }
     }
 
@@ -220,10 +315,10 @@ final class AppModel: ObservableObject {
 
     func refreshApps() async {
         guard isPaired else {
-            lastMessage = "Pair with this device first."
+            lastMessage = s(.errPairFirst)
             return
         }
-        phase = .working("Connecting to the device…")
+        phase = .working(s(.phaseConnecting))
         pushHosts()
 
         let path = PairingController.pairingFilePath
@@ -246,11 +341,11 @@ final class AppModel: ObservableObject {
 
     func probe() {
         guard isPaired else {
-            lastMessage = "Pair with this device first."
+            lastMessage = s(.errPairFirst)
             return
         }
         Task {
-            phase = .working("Probing the device…")
+            phase = .working(s(.phaseProbing))
             pushHosts()
             let path = PairingController.pairingFilePath
             let result = await runOffMain {
@@ -259,8 +354,11 @@ final class AppModel: ObservableObject {
             switch result {
             case .success(let probe):
                 phase = .ready
-                lastMessage = "Reached the device at \(probe.host) · \(probe.services) services · "
-                    + "appservice=\(probe.appService ? "yes" : "no") · dvt=\(probe.dvt ? "yes" : "no")"
+                lastMessage = Self.fill(s(.probeReached),
+                                        probe.host,
+                                        "\(probe.services)",
+                                        probe.appService ? "yes" : "no",
+                                        probe.dvt ? "yes" : "no")
             case .failure(let error):
                 phase = .failed(error.localizedDescription)
                 lastMessage = error.localizedDescription
@@ -270,7 +368,7 @@ final class AppModel: ObservableObject {
 
     func launch(_ app: InstalledApp) {
         Task {
-            phase = .working("Launching \(app.name)…")
+            phase = .working(Self.fill(s(.phaseLaunching), app.name))
             pushHosts()
 
             // Snapshot the value types we need so the detached closure captures
@@ -304,11 +402,11 @@ final class AppModel: ObservableObject {
 
     func captureScreenshot() {
         guard isPaired else {
-            lastMessage = "Pair with this device first."
+            lastMessage = s(.errPairFirst)
             return
         }
         Task {
-            phase = .working("Capturing the screen…")
+            phase = .working(s(.phaseCapturing))
             pushHosts()
 
             let stamp = ISO8601DateFormatter().string(from: Date())

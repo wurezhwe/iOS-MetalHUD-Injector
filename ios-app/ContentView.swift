@@ -29,6 +29,7 @@ struct ContentView: View {
                             hudSettingsCard
                             appsCard
                         } else {
+                            vpnCard
                             pairingCard
                         }
                         consoleCard
@@ -40,6 +41,12 @@ struct ContentView: View {
             }
             .navigationTitle(t(.appTitle))
             .navigationBarTitleDisplayMode(.inline)
+            // The VPN can be toggled from Control Centre or the VPN app, so the
+            // read-out has to be refreshed whenever the app comes forward.
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIApplication.didBecomeActiveNotification)) { _ in
+                model.refreshVPN()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
@@ -48,7 +55,7 @@ struct ContentView: View {
                                 Text(lang.nativeName).tag(lang)
                             }
                         } label: {
-                            Text("Language")
+                            Text(t(.languagePicker))
                         }
                     } label: {
                         Image(systemName: "globe")
@@ -164,6 +171,9 @@ struct ContentView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             // --- the PIN, front and centre ------------------------------
+            // Shown as a placeholder before pairing starts so the absence of a
+            // number does not read as a bug - the PIN genuinely cannot exist
+            // until the user initiates pairing from Settings.
             if let pin = pairing.pin {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(t(.pin))
@@ -174,7 +184,7 @@ struct ContentView: View {
                         .foregroundStyle(Theme.accent)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .center)
-                    Text(t(.pairStep2Body))
+                    Text(t(.pairPinCaption))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -182,6 +192,14 @@ struct ContentView: View {
                 }
                 .padding(14)
                 .background(Theme.accentWash, in: RoundedRectangle(cornerRadius: 14))
+            } else {
+                Text(t(.pairPinPending))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(14)
+                    .background(Theme.fieldBackground, in: RoundedRectangle(cornerRadius: 14))
             }
 
             // --- guided steps -------------------------------------------
@@ -202,6 +220,12 @@ struct ContentView: View {
                     pairingStep(index: 3,
                                 title: t(.pairStep3Title),
                                 body: t(.pairStep3Body),
+                                actionTitle: t(.pairOpenSettings),
+                                action: openDeveloperSettings)
+
+                    pairingStep(index: 4,
+                                title: t(.pairStep4Title),
+                                body: t(.pairStep4Body),
                                 actionTitle: nil,
                                 action: nil)
 
@@ -228,9 +252,11 @@ struct ContentView: View {
             }
             .tint(Theme.accent)
 
-            Text(pairing.status)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            if !pairing.status.isEmpty {
+                Text(pairing.status)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
 
             HStack(spacing: 8) {
                 if pairing.running {
@@ -268,6 +294,107 @@ struct ContentView: View {
                 model.importPairingFile(url)
             }
         }
+    }
+
+    // MARK: - VPN
+
+    /// The loopback VPN is a hard prerequisite, so it gets its own card with a
+    /// live read-out rather than a line of prose the user will skip. Both
+    /// pairing routes need it: the pairing host is reached over Bonjour, and
+    /// every tunnel connection afterwards goes through `10.7.0.1`.
+    private var vpnCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: model.vpn.isConnected
+                      ? "lock.shield.fill" : "exclamationmark.shield.fill")
+                    .foregroundStyle(model.vpn.isConnected ? Theme.good : Theme.warn)
+                Text(t(.vpnTitle))
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(model.vpn.isConnected ? t(.vpnConnected) : t(.vpnNotConnected))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(model.vpn.isConnected ? Theme.good : Theme.warn)
+            }
+
+            Text(t(.vpnBody))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !model.vpn.isConnected {
+                Text(t(.vpnRequired))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Theme.warn)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // The live read-out: which interface, which address, which gateway.
+            if let address = model.vpn.tunnelAddress {
+                HStack(spacing: 6) {
+                    Image(systemName: "point.3.connected.trianglepath.dotted")
+                        .font(.caption2)
+                    Text("\(t(.vpnDetected)) \(address)")
+                        .font(.system(size: 11, design: .monospaced))
+                    if let name = model.vpn.interfaceName {
+                        Text("· \(name)")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if model.vpnCheckInFlight {
+                        ProgressView().controlSize(.mini)
+                    }
+                }
+                .foregroundStyle(Theme.good)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.fieldBackground, in: RoundedRectangle(cornerRadius: 9))
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(t(.vpnNoTunnel))
+                        .font(.system(size: 11, design: .monospaced))
+                    Text(t(.vpnHowTo))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundStyle(Theme.warn)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.fieldBackground, in: RoundedRectangle(cornerRadius: 9))
+            }
+
+            Text(t(.vpnFreeNote))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                if model.canOpenVPN {
+                    GlassActionButton(title: t(.vpnOpenApp),
+                                      systemImage: "arrow.up.forward.app",
+                                      prominent: !model.vpn.isConnected) {
+                        model.openVPN()
+                    }
+                }
+                GlassActionButton(title: t(.vpnGetApp),
+                                  systemImage: "arrow.down.circle") {
+                    model.openVPNStorePage()
+                }
+                GlassActionButton(title: t(.vpnRecheck),
+                                  systemImage: "arrow.triangle.2.circlepath") {
+                    model.refreshVPN()
+                }
+            }
+
+            Text(t(.vpnLaunchHint))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .glassCard()
     }
 
     /// One numbered step, with an optional jump button.

@@ -19,7 +19,10 @@ final class PairingController: ObservableObject {
 
     @Published private(set) var running = false
     @Published private(set) var pin: String?
-    @Published private(set) var status: String = "Not paired"
+    /// Human-readable state line. Starts empty and stays empty until the host
+    /// runs; the view substitutes a localized "not paired" for that case, which
+    /// keeps this property initializer free of actor-isolated lookups.
+    @Published private(set) var status: String = ""
 
     private nonisolated static let altIRKKey = "metalhud.pairing.hostAltIRK"
 
@@ -107,14 +110,14 @@ final class PairingController: ObservableObject {
         keepAlive.stopAll()
         running = true
         pin = nil
-        status = "Starting the pairing host…"
+        status = L10n.string(.statusStarting, LanguageStore.shared.language)
 
         Task {
             _ = await localNetwork.request()
             guard running else { return }
 
             keepAlive.startAudio()
-            status = "Broadcasting — open Settings to pair"
+            status = L10n.string(.statusAdvertising, LanguageStore.shared.language)
             runHost()
         }
     }
@@ -188,16 +191,16 @@ final class PairingController: ObservableObject {
         case .success(let (deviceName, path)):
             let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? NSNumber)?.intValue ?? 0
             if size == 0 {
-                status = "Pairing produced an empty file"
+                status = L10n.string(.statusEmptyFile, LanguageStore.shared.language)
                 resolve(.failure(BridgeError.failed(
-                    "The device paired but the record is empty. Approve the request and try again."
+                    L10n.string(.statusEmptyFileBody, LanguageStore.shared.language)
                 )))
             } else {
-                status = "Paired with \(deviceName)"
+                status = AppModel.fill(L10n.string(.statusPairedWith, LanguageStore.shared.language), deviceName)
                 resolve(.success(path))
             }
         case .failure(let error):
-            status = "Pairing failed"
+            status = L10n.string(.statusFailed, LanguageStore.shared.language)
             resolve(.failure(error))
         }
     }
@@ -215,12 +218,12 @@ final class PairingController: ObservableObject {
         service.setTXTRecord(NetService.data(fromTXTRecord: txt))
         service.publish()
         netService = service
-        status = "Advertising — Settings > Privacy & Security > Developer Mode"
+        status = L10n.string(.statusAdvertisingDev, LanguageStore.shared.language)
     }
 
     fileprivate func presentPIN(_ value: String) {
         pin = value
-        status = "Enter PIN \(value) in Settings > Developer Mode"
+        status = AppModel.fill(L10n.string(.statusEnterPin, LanguageStore.shared.language), value)
     }
 
     private func stopAdvertising() {

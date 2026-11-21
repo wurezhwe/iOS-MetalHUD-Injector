@@ -51,6 +51,41 @@ enum NetworkStatus {
             || name.hasPrefix("tap") || name.hasPrefix("ppp")
     }
 
+    // MARK: - VPN state
+
+    /// What the loopback VPN currently looks like from inside the app.
+    struct VPNState {
+        /// The address the VPN gave this device, e.g. `10.7.0.2`.
+        var tunnelAddress: String?
+        /// The gateway to dial, derived from the tunnel subnet.
+        var gateway: String?
+        var interfaceName: String?
+        /// True only when a tunnel interface carries a routable IPv4 address.
+        var isConnected: Bool { tunnelAddress != nil }
+
+        static let disconnected = VPNState()
+    }
+
+    /// A VPN that is merely *installed* leaves no interface behind; one that is
+    /// connected gets a `utunN` with a non-loopback IPv4 address. That is the
+    /// only reliable signal available without private APIs, so this is what the
+    /// UI reports rather than a guess.
+    static func vpnState() -> VPNState {
+        let tunnels = interfaces().filter {
+            isTunnelInterface($0.name) && !$0.ipv4.hasPrefix("127.")
+        }
+        // Prefer the familiar 10.7.0.x /10.8.0.x range: SideStore, StikDebug and
+        // LocalDevVPN all use it, and a device may have several utun interfaces.
+        let preferred = tunnels.first { $0.ipv4.hasPrefix("10.") } ?? tunnels.first
+        guard let iface = preferred else { return .disconnected }
+
+        var state = VPNState()
+        state.tunnelAddress = iface.ipv4
+        state.interfaceName = iface.name
+        state.gateway = addresses(for: iface).first ?? iface.ipv4
+        return state
+    }
+
     /// Every address worth dialling for the RSD listener, best guess first.
     static func tunnelCandidates(preferred: String) -> [String] {
         var out: [String] = []

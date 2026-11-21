@@ -28,7 +28,7 @@ group("Header", [
      "给任意 App Store 应用注入 MTL_HUD_ENABLED 后启动",
      "為任意 App Store 應用程式注入 MTL_HUD_ENABLED 後啟動"),
     ("refresh", "Refresh", "刷新", "重新整理"),
-    ("language", "Language", "语言", "語言"),
+    ("languagePicker", "Language", "语言", "語言"),
 ])
 
 group("Connection", [
@@ -44,38 +44,55 @@ group("Connection", [
 group("Pairing", [
     ("pairTitle", "Pair this device", "配对本机", "配對本機"),
     ("pairExplanation",
-     "iOS 27 can pair with a host running inside an app. Start the host, then "
-     "approve the 6-digit PIN in Settings > Privacy & Security > Developer Mode.",
-     "iOS 27 起，应用可以作为可配对主机。先启动主机，再进入设置里的开发者模式批准 6 位 PIN。",
-     "iOS 27 起，應用程式可以作為可配對主機。先啟動主機，再進入設定裡的開發者模式批准 6 位數 PIN。"),
+     "On iOS 27 and later an app can act as the pairing host. The 6-digit PIN is "
+     "generated only after you start pairing from Settings, so the order below "
+     "matters.",
+     "iOS 27 起，应用可以反过来当作配对主机。6 位 PIN 只有在你从设置里发起配对之后才会生成，"
+     "所以下面的顺序不能颠倒。",
+     "iOS 27 起，應用程式可以反過來當作配對主機。6 位數 PIN 只有在你從設定裡發起配對之後才會產生，"
+     "所以下面的順序不能顛倒。"),
+    ("pairPinPending",
+     "The PIN appears here once you tap “Pair with MetalHUD” in Settings.",
+     "在设置里点「与 MetalHUD 配对」之后，PIN 才会显示在这里。",
+     "在設定裡點「與 MetalHUD 配對」之後，PIN 才會顯示在這裡。"),
+    ("pairPinCaption",
+     "Type this into the Settings dialog. Do not leave this app.",
+     "把这个数字填进设置里的输入框，别退出本应用。",
+     "把這個數字填進設定裡的輸入框，別退出本應用程式。"),
     ("pin", "PIN", "PIN", "PIN"),
     ("startPairingHost", "Start pairing host", "启动配对主机", "啟動配對主機"),
     ("cancel", "Cancel", "取消", "取消"),
     ("importPairingFile", "Import pairing file", "导入配对文件", "匯入配對檔"),
-    ("pairStatusIdle", "Not paired yet", "尚未配对", "尚未配對"),
-    ("pairFirst", "Pair with this device first.", "请先配对本机。", "請先配對本機。"),
 
     # --- guided steps -----------------------------------------------------
     ("pairStep1Title", "1. Turn on Developer Mode",
      "① 打开开发者模式", "① 開啟開發者模式"),
     ("pairStep1Body",
-     "Settings > Privacy & Security > Developer Mode > On, then restart the "
-     "device. The pairing option only appears after that.",
+     "Settings › Privacy & Security › Developer Mode › On, then restart the "
+     "device. The pairing entry only appears after the restart.",
      "设置 › 隐私与安全性 › 开发者模式 › 打开，然后重启设备。配对入口在重启后才会出现。",
      "設定 › 隱私權與安全性 › 開發者模式 › 開啟，然後重新啟動裝置。配對入口在重新啟動後才會出現。"),
-    ("pairStep2Title", "2. Start the host and note the PIN",
-     "② 启动主机并记下 PIN", "② 啟動主機並記下 PIN"),
+    ("pairStep2Title", "2. Start the host here",
+     "② 在这里启动主机", "② 在這裡啟動主機"),
     ("pairStep2Body",
-     "Tap Start pairing host below. A 6-digit PIN appears; keep this screen open.",
-     "点下面的「启动配对主机」，屏幕会出现 6 位 PIN，保持本页面不要退出。",
-     "點下面的「啟動配對主機」，畫面會出現 6 位數 PIN，保持本頁面不要退出。"),
-    ("pairStep3Title", "3. Approve the PIN in Settings",
-     "③ 在设置里批准 PIN", "③ 在設定裡批准 PIN"),
+     "Tap Start pairing host below and leave this screen open. Nothing appears "
+     "yet — that is expected.",
+     "点下面的「启动配对主机」，然后保持本页面不要退出。这时还不会显示任何东西，是正常的。",
+     "點下面的「啟動配對主機」，然後保持本頁面不要退出。這時還不會顯示任何東西，是正常的。"),
+    ("pairStep3Title", "3. Start pairing from Settings",
+     "③ 从设置里发起配对", "③ 從設定裡發起配對"),
     ("pairStep3Body",
-     "Settings > Privacy & Security > Developer Mode > Pair with MetalHUD, then "
-     "enter the PIN. Come back here when it finishes.",
-     "设置 › 隐私与安全性 › 开发者模式 › 与 MetalHUD 配对，输入 PIN。完成后回到这里。",
-     "設定 › 隱私權與安全性 › 開發者模式 › 與 MetalHUD 配對，輸入 PIN。完成後回到這裡。"),
+     "Settings › Privacy & Security › Developer Mode › Pair with MetalHUD. "
+     "Only now does iOS ask for a PIN.",
+     "设置 › 隐私与安全性 › 开发者模式 › 与 MetalHUD 配对。点了之后 iOS 才会索要 PIN。",
+     "設定 › 隱私權與安全性 › 開發者模式 › 與 MetalHUD 配對。點了之後 iOS 才會要求 PIN。"),
+    ("pairStep4Title", "4. Type the PIN",
+     "④ 输入 PIN", "④ 輸入 PIN"),
+    ("pairStep4Body",
+     "Come back to this app, read the 6 digits and type them into the Settings "
+     "dialog. Pairing finishes on its own.",
+     "回到本应用读出 6 位数字，填进设置里的那个输入框，配对会自动完成。",
+     "回到本應用程式讀出 6 位數字，填進設定裡的那個輸入框，配對會自動完成。"),
     ("pairHaveFile", "Already have a pairing file?",
      "已经有配对文件了？", "已經有配對檔了？"),
     ("pairHaveFileBody",
@@ -86,9 +103,75 @@ group("Pairing", [
      "可以從 SideStore、LiveContainer 或電腦產生的檔案匯入，不必在這裡配對。"
      "iOS 18-26 只能走這條路。"),
     ("pairOpenSettings", "Open Settings", "打开设置", "開啟設定"),
-    ("pairWaiting", "Waiting for the device…", "正在等待设备…", "正在等待裝置…"),
+    ("pairWaiting", "Waiting for the device to start pairing…",
+     "正在等待设备发起配对…", "正在等待裝置發起配對…"),
+
+    # --- VPN --------------------------------------------------------------
+    ("vpnTitle", "Loopback VPN", "回环 VPN", "回環 VPN"),
+    ("vpnBody",
+     "Both pairing types reach this device's own developer services through a "
+     "loopback VPN. Without it, pairing can finish but every connection after "
+     "that fails.",
+     "两种配对方式都要靠回环 VPN 才能访问设备自己的开发服务。没有它，配对可能成功，"
+     "但之后每一次连接都会失败。",
+     "兩種配對方式都要靠回環 VPN 才能存取裝置自己的開發服務。沒有它，配對可能成功，"
+     "但之後每一次連線都會失敗。"),
+    ("vpnRequired", "Install it before pairing — nothing works without it",
+     "配对前必须先装，没有它什么都连不上",
+     "配對前必須先裝，沒有它什麼都連不上"),
+    ("vpnGetApp", "Get LocalDevVPN", "获取 LocalDevVPN", "取得 LocalDevVPN"),
+    ("vpnFreeNote", "Free on the App Store. SideStore's built-in WireGuard also works.",
+     "App Store 免费。已装 SideStore 的话，它自带的 WireGuard 回环也能用。",
+     "App Store 免費。已裝 SideStore 的話，它自帶的 WireGuard 回環也能用。"),
+    ("vpnConnected", "VPN connected", "VPN 已连接", "VPN 已連線"),
+    ("vpnNotConnected", "VPN not connected", "VPN 未连接", "VPN 未連線"),
+    ("vpnNoTunnel", "No tunnel interface found", "没找到隧道网卡", "沒找到通道網卡"),
+    ("vpnDetected", "detected at", "地址", "位址"),
+    ("vpnOpenApp", "Open LocalDevVPN", "打开 LocalDevVPN", "開啟 LocalDevVPN"),
+    ("vpnRecheck", "Check again", "重新检测", "重新偵測"),
+    ("vpnHowTo", "Open LocalDevVPN and tap Connect, then come back here.",
+     "打开 LocalDevVPN 点「连接」，然后回到这里。",
+     "開啟 LocalDevVPN 點「連線」，然後回到這裡。"),
+    ("vpnLaunchHint",
+     "This VPN only carries local traffic; nothing leaves the device. It is how "
+     "an app reaches ports that are otherwise loopback-only.",
+     "这个 VPN 只走本地流量，不会有任何数据离开设备。它只是让应用能访问原本只对本机回环开放的端口。",
+     "這個 VPN 只走本機流量，不會有任何資料離開裝置。它只是讓應用程式能存取原本只對本機回環開放的連接埠。"),
     ("pairShowGuide", "Show guide", "查看步骤", "查看步驟"),
     ("pairHideGuide", "Hide guide", "收起步骤", "收起步驟"),
+
+    # --- runtime status (shown under the pairing card) ---------------------
+    ("statusIdle", "Not paired", "未配对", "未配對"),
+    ("statusPaired", "Paired", "已配对", "已配對"),
+    ("statusStarting", "Starting the pairing host…",
+     "正在启动配对主机…", "正在啟動配對主機…"),
+    ("statusAdvertising",
+     "Advertising — now open Settings",
+     "正在广播，现在去打开设置", "正在廣播，現在去開啟設定"),
+    ("statusAdvertisingDev",
+     "Advertising — Settings › Privacy & Security › Developer Mode",
+     "正在广播 · 设置 › 隐私与安全性 › 开发者模式",
+     "正在廣播 · 設定 › 隱私權與安全性 › 開發者模式"),
+    ("statusEnterPin", "Enter PIN %@ in Settings",
+     "在设置里输入 PIN %@", "在設定裡輸入 PIN %@"),
+    ("statusPairedWith", "Paired with %@", "已与 %@ 配对", "已與 %@ 配對"),
+    ("statusFailed", "Pairing failed", "配对失败", "配對失敗"),
+    ("statusEmptyFile", "Pairing produced an empty file",
+     "配对生成的文件是空的", "配對產生的檔案是空的"),
+    ("statusEmptyFileBody",
+     "The device paired but the record is empty. Approve the request and try again.",
+     "设备配对成功但记录是空的，请重新批准一次。",
+     "裝置配對成功但記錄是空的，請重新批准一次。"),
+    ("errPairFirst", "Pair with this device first.", "请先配对本机。", "請先配對本機。"),
+    ("errUnreadableFile", "Could not read %@.", "无法读取 %@。", "無法讀取 %@。"),
+    ("phaseConnecting", "Connecting to the device…", "正在连接设备…", "正在連線裝置…"),
+    ("phaseProbing", "Probing the device…", "正在探测设备…", "正在探測裝置…"),
+    ("phaseLaunching", "Launching %@…", "正在启动 %@…", "正在啟動 %@…"),
+    ("phaseCapturing", "Capturing the screen…", "正在截图…", "正在截圖…"),
+    ("probeReached",
+     "Reached the device at %@ · %d services · appservice=%@ · dvt=%@",
+     "已连接设备 %@ · %d 个服务 · appservice=%@ · dvt=%@",
+     "已連線裝置 %@ · %d 個服務 · appservice=%@ · dvt=%@"),
 ])
 
 group("HUD basics", [
@@ -148,11 +231,9 @@ group("HUD advanced", [
 ])
 
 group("HUD launch", [
-    ("launchOptions", "Launch options", "启动选项", "啟動選項"),
     ("terminateExisting", "Terminate the app if it is already running",
      "启动前结束已在运行的实例", "啟動前結束已在執行的實例"),
     ("showOnlyGames", "Games only", "只看游戏", "只看遊戲"),
-    ("injectedEnvironment", "Injected environment", "注入的环境变量", "注入的環境變數"),
 ])
 
 group("Layouts", [

@@ -72,6 +72,13 @@
 		<true/>
 	</dict>
 
+	<!-- Lets the VPN card jump straight into LocalDevVPN instead of making the
+	     user find it on the Home Screen. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>localdevvpn</string>
+	</array>
+
 	<!-- Documents directory is where the pairing file lives; exposing it in the
 	     Files app lets users drop in a pairing record from SideStore or a Mac. -->
 	<key>UIFileSharingEnabled</key>

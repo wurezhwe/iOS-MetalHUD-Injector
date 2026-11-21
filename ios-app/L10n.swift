@@ -35,7 +35,7 @@ enum L10n {
         case appTitle
         case appSubtitle
         case refresh
-        case language
+        case languagePicker
         // Connection
         case pairingLoaded
         case pairingMissing
@@ -47,24 +47,56 @@ enum L10n {
         // Pairing
         case pairTitle
         case pairExplanation
+        case pairPinPending
+        case pairPinCaption
         case pin
         case startPairingHost
         case cancel
         case importPairingFile
-        case pairStatusIdle
-        case pairFirst
         case pairStep1Title
         case pairStep1Body
         case pairStep2Title
         case pairStep2Body
         case pairStep3Title
         case pairStep3Body
+        case pairStep4Title
+        case pairStep4Body
         case pairHaveFile
         case pairHaveFileBody
         case pairOpenSettings
         case pairWaiting
+        case vpnTitle
+        case vpnBody
+        case vpnRequired
+        case vpnGetApp
+        case vpnFreeNote
+        case vpnConnected
+        case vpnNotConnected
+        case vpnNoTunnel
+        case vpnDetected
+        case vpnOpenApp
+        case vpnRecheck
+        case vpnHowTo
+        case vpnLaunchHint
         case pairShowGuide
         case pairHideGuide
+        case statusIdle
+        case statusPaired
+        case statusStarting
+        case statusAdvertising
+        case statusAdvertisingDev
+        case statusEnterPin
+        case statusPairedWith
+        case statusFailed
+        case statusEmptyFile
+        case statusEmptyFileBody
+        case errPairFirst
+        case errUnreadableFile
+        case phaseConnecting
+        case phaseProbing
+        case phaseLaunching
+        case phaseCapturing
+        case probeReached
         // HUD basics
         case hudSection
         case hudEnable
@@ -93,10 +125,8 @@ enum L10n {
         case hudRusageInterval
         case hudMetricTimeout
         // HUD launch
-        case launchOptions
         case terminateExisting
         case showOnlyGames
-        case injectedEnvironment
         // Layouts
         case layoutLite
         case layoutFPS
@@ -167,7 +197,7 @@ enum L10n {
         .appTitle: "Metal HUD",
         .appSubtitle: "Launch any App Store app with MTL_HUD_ENABLED injected",
         .refresh: "Refresh",
-        .language: "Language",
+        .languagePicker: "Language",
 
         // Connection
         .pairingLoaded: "Pairing record loaded",
@@ -181,34 +211,74 @@ enum L10n {
         // Pairing
         .pairTitle: "Pair this device",
         .pairExplanation: """
-        iOS 27 can pair with a host running inside an app. Start the host, then approve the 6-digit PIN in Settings > Privacy & Security > Developer Mode.
+        On iOS 27 and later an app can act as the pairing host. The 6-digit PIN is generated only after you start pairing from Settings, so the order below matters.
         """,
+        .pairPinPending: "The PIN appears here once you tap “Pair with MetalHUD” in Settings.",
+        .pairPinCaption: "Type this into the Settings dialog. Do not leave this app.",
         .pin: "PIN",
         .startPairingHost: "Start pairing host",
         .cancel: "Cancel",
         .importPairingFile: "Import pairing file",
-        .pairStatusIdle: "Not paired yet",
-        .pairFirst: "Pair with this device first.",
         .pairStep1Title: "1. Turn on Developer Mode",
         .pairStep1Body: """
-        Settings > Privacy & Security > Developer Mode > On, then restart the device. The pairing option only appears after that.
+        Settings › Privacy & Security › Developer Mode › On, then restart the device. The pairing entry only appears after the restart.
         """,
-        .pairStep2Title: "2. Start the host and note the PIN",
+        .pairStep2Title: "2. Start the host here",
         .pairStep2Body: """
-        Tap Start pairing host below. A 6-digit PIN appears; keep this screen open.
+        Tap Start pairing host below and leave this screen open. Nothing appears yet — that is expected.
         """,
-        .pairStep3Title: "3. Approve the PIN in Settings",
+        .pairStep3Title: "3. Start pairing from Settings",
         .pairStep3Body: """
-        Settings > Privacy & Security > Developer Mode > Pair with MetalHUD, then enter the PIN. Come back here when it finishes.
+        Settings › Privacy & Security › Developer Mode › Pair with MetalHUD. Only now does iOS ask for a PIN.
+        """,
+        .pairStep4Title: "4. Type the PIN",
+        .pairStep4Body: """
+        Come back to this app, read the 6 digits and type them into the Settings dialog. Pairing finishes on its own.
         """,
         .pairHaveFile: "Already have a pairing file?",
         .pairHaveFileBody: """
         Import one from SideStore, LiveContainer or a computer instead of pairing here. On iOS 18-26 this is the only option.
         """,
         .pairOpenSettings: "Open Settings",
-        .pairWaiting: "Waiting for the device…",
+        .pairWaiting: "Waiting for the device to start pairing…",
+        .vpnTitle: "Loopback VPN",
+        .vpnBody: """
+        Both pairing types reach this device's own developer services through a loopback VPN. Without it, pairing can finish but every connection after that fails.
+        """,
+        .vpnRequired: "Install it before pairing — nothing works without it",
+        .vpnGetApp: "Get LocalDevVPN",
+        .vpnFreeNote: "Free on the App Store. SideStore's built-in WireGuard also works.",
+        .vpnConnected: "VPN connected",
+        .vpnNotConnected: "VPN not connected",
+        .vpnNoTunnel: "No tunnel interface found",
+        .vpnDetected: "detected at",
+        .vpnOpenApp: "Open LocalDevVPN",
+        .vpnRecheck: "Check again",
+        .vpnHowTo: "Open LocalDevVPN and tap Connect, then come back here.",
+        .vpnLaunchHint: """
+        This VPN only carries local traffic; nothing leaves the device. It is how an app reaches ports that are otherwise loopback-only.
+        """,
         .pairShowGuide: "Show guide",
         .pairHideGuide: "Hide guide",
+        .statusIdle: "Not paired",
+        .statusPaired: "Paired",
+        .statusStarting: "Starting the pairing host…",
+        .statusAdvertising: "Advertising — now open Settings",
+        .statusAdvertisingDev: "Advertising — Settings › Privacy & Security › Developer Mode",
+        .statusEnterPin: "Enter PIN %@ in Settings",
+        .statusPairedWith: "Paired with %@",
+        .statusFailed: "Pairing failed",
+        .statusEmptyFile: "Pairing produced an empty file",
+        .statusEmptyFileBody: """
+        The device paired but the record is empty. Approve the request and try again.
+        """,
+        .errPairFirst: "Pair with this device first.",
+        .errUnreadableFile: "Could not read %@.",
+        .phaseConnecting: "Connecting to the device…",
+        .phaseProbing: "Probing the device…",
+        .phaseLaunching: "Launching %@…",
+        .phaseCapturing: "Capturing the screen…",
+        .probeReached: "Reached the device at %@ · %d services · appservice=%@ · dvt=%@",
 
         // HUD basics
         .hudSection: "Metal HUD",
@@ -242,10 +312,8 @@ enum L10n {
         .hudMetricTimeout: "Transient metric timeout (s)",
 
         // HUD launch
-        .launchOptions: "Launch options",
         .terminateExisting: "Terminate the app if it is already running",
         .showOnlyGames: "Games only",
-        .injectedEnvironment: "Injected environment",
 
         // Layouts
         .layoutLite: "Lite",
@@ -304,7 +372,7 @@ enum L10n {
         .appTitle: "Metal HUD",
         .appSubtitle: "给任意 App Store 应用注入 MTL_HUD_ENABLED 后启动",
         .refresh: "刷新",
-        .language: "语言",
+        .languagePicker: "语言",
 
         // Connection
         .pairingLoaded: "已载入配对记录",
@@ -317,25 +385,57 @@ enum L10n {
 
         // Pairing
         .pairTitle: "配对本机",
-        .pairExplanation: "iOS 27 起，应用可以作为可配对主机。先启动主机，再进入设置里的开发者模式批准 6 位 PIN。",
+        .pairExplanation: "iOS 27 起，应用可以反过来当作配对主机。6 位 PIN 只有在你从设置里发起配对之后才会生成，所以下面的顺序不能颠倒。",
+        .pairPinPending: "在设置里点「与 MetalHUD 配对」之后，PIN 才会显示在这里。",
+        .pairPinCaption: "把这个数字填进设置里的输入框，别退出本应用。",
         .pin: "PIN",
         .startPairingHost: "启动配对主机",
         .cancel: "取消",
         .importPairingFile: "导入配对文件",
-        .pairStatusIdle: "尚未配对",
-        .pairFirst: "请先配对本机。",
         .pairStep1Title: "① 打开开发者模式",
         .pairStep1Body: "设置 › 隐私与安全性 › 开发者模式 › 打开，然后重启设备。配对入口在重启后才会出现。",
-        .pairStep2Title: "② 启动主机并记下 PIN",
-        .pairStep2Body: "点下面的「启动配对主机」，屏幕会出现 6 位 PIN，保持本页面不要退出。",
-        .pairStep3Title: "③ 在设置里批准 PIN",
-        .pairStep3Body: "设置 › 隐私与安全性 › 开发者模式 › 与 MetalHUD 配对，输入 PIN。完成后回到这里。",
+        .pairStep2Title: "② 在这里启动主机",
+        .pairStep2Body: "点下面的「启动配对主机」，然后保持本页面不要退出。这时还不会显示任何东西，是正常的。",
+        .pairStep3Title: "③ 从设置里发起配对",
+        .pairStep3Body: "设置 › 隐私与安全性 › 开发者模式 › 与 MetalHUD 配对。点了之后 iOS 才会索要 PIN。",
+        .pairStep4Title: "④ 输入 PIN",
+        .pairStep4Body: "回到本应用读出 6 位数字，填进设置里的那个输入框，配对会自动完成。",
         .pairHaveFile: "已经有配对文件了？",
         .pairHaveFileBody: "可以从 SideStore、LiveContainer 或电脑生成的文件导入，不必在这里配对。iOS 18-26 只能走这条路。",
         .pairOpenSettings: "打开设置",
-        .pairWaiting: "正在等待设备…",
+        .pairWaiting: "正在等待设备发起配对…",
+        .vpnTitle: "回环 VPN",
+        .vpnBody: "两种配对方式都要靠回环 VPN 才能访问设备自己的开发服务。没有它，配对可能成功，但之后每一次连接都会失败。",
+        .vpnRequired: "配对前必须先装，没有它什么都连不上",
+        .vpnGetApp: "获取 LocalDevVPN",
+        .vpnFreeNote: "App Store 免费。已装 SideStore 的话，它自带的 WireGuard 回环也能用。",
+        .vpnConnected: "VPN 已连接",
+        .vpnNotConnected: "VPN 未连接",
+        .vpnNoTunnel: "没找到隧道网卡",
+        .vpnDetected: "地址",
+        .vpnOpenApp: "打开 LocalDevVPN",
+        .vpnRecheck: "重新检测",
+        .vpnHowTo: "打开 LocalDevVPN 点「连接」，然后回到这里。",
+        .vpnLaunchHint: "这个 VPN 只走本地流量，不会有任何数据离开设备。它只是让应用能访问原本只对本机回环开放的端口。",
         .pairShowGuide: "查看步骤",
         .pairHideGuide: "收起步骤",
+        .statusIdle: "未配对",
+        .statusPaired: "已配对",
+        .statusStarting: "正在启动配对主机…",
+        .statusAdvertising: "正在广播，现在去打开设置",
+        .statusAdvertisingDev: "正在广播 · 设置 › 隐私与安全性 › 开发者模式",
+        .statusEnterPin: "在设置里输入 PIN %@",
+        .statusPairedWith: "已与 %@ 配对",
+        .statusFailed: "配对失败",
+        .statusEmptyFile: "配对生成的文件是空的",
+        .statusEmptyFileBody: "设备配对成功但记录是空的，请重新批准一次。",
+        .errPairFirst: "请先配对本机。",
+        .errUnreadableFile: "无法读取 %@。",
+        .phaseConnecting: "正在连接设备…",
+        .phaseProbing: "正在探测设备…",
+        .phaseLaunching: "正在启动 %@…",
+        .phaseCapturing: "正在截图…",
+        .probeReached: "已连接设备 %@ · %d 个服务 · appservice=%@ · dvt=%@",
 
         // HUD basics
         .hudSection: "Metal HUD",
@@ -367,10 +467,8 @@ enum L10n {
         .hudMetricTimeout: "临时指标超时（秒）",
 
         // HUD launch
-        .launchOptions: "启动选项",
         .terminateExisting: "启动前结束已在运行的实例",
         .showOnlyGames: "只看游戏",
-        .injectedEnvironment: "注入的环境变量",
 
         // Layouts
         .layoutLite: "精简",
@@ -429,7 +527,7 @@ enum L10n {
         .appTitle: "Metal HUD",
         .appSubtitle: "為任意 App Store 應用程式注入 MTL_HUD_ENABLED 後啟動",
         .refresh: "重新整理",
-        .language: "語言",
+        .languagePicker: "語言",
 
         // Connection
         .pairingLoaded: "已載入配對記錄",
@@ -442,25 +540,57 @@ enum L10n {
 
         // Pairing
         .pairTitle: "配對本機",
-        .pairExplanation: "iOS 27 起，應用程式可以作為可配對主機。先啟動主機，再進入設定裡的開發者模式批准 6 位數 PIN。",
+        .pairExplanation: "iOS 27 起，應用程式可以反過來當作配對主機。6 位數 PIN 只有在你從設定裡發起配對之後才會產生，所以下面的順序不能顛倒。",
+        .pairPinPending: "在設定裡點「與 MetalHUD 配對」之後，PIN 才會顯示在這裡。",
+        .pairPinCaption: "把這個數字填進設定裡的輸入框，別退出本應用程式。",
         .pin: "PIN",
         .startPairingHost: "啟動配對主機",
         .cancel: "取消",
         .importPairingFile: "匯入配對檔",
-        .pairStatusIdle: "尚未配對",
-        .pairFirst: "請先配對本機。",
         .pairStep1Title: "① 開啟開發者模式",
         .pairStep1Body: "設定 › 隱私權與安全性 › 開發者模式 › 開啟，然後重新啟動裝置。配對入口在重新啟動後才會出現。",
-        .pairStep2Title: "② 啟動主機並記下 PIN",
-        .pairStep2Body: "點下面的「啟動配對主機」，畫面會出現 6 位數 PIN，保持本頁面不要退出。",
-        .pairStep3Title: "③ 在設定裡批准 PIN",
-        .pairStep3Body: "設定 › 隱私權與安全性 › 開發者模式 › 與 MetalHUD 配對，輸入 PIN。完成後回到這裡。",
+        .pairStep2Title: "② 在這裡啟動主機",
+        .pairStep2Body: "點下面的「啟動配對主機」，然後保持本頁面不要退出。這時還不會顯示任何東西，是正常的。",
+        .pairStep3Title: "③ 從設定裡發起配對",
+        .pairStep3Body: "設定 › 隱私權與安全性 › 開發者模式 › 與 MetalHUD 配對。點了之後 iOS 才會要求 PIN。",
+        .pairStep4Title: "④ 輸入 PIN",
+        .pairStep4Body: "回到本應用程式讀出 6 位數字，填進設定裡的那個輸入框，配對會自動完成。",
         .pairHaveFile: "已經有配對檔了？",
         .pairHaveFileBody: "可以從 SideStore、LiveContainer 或電腦產生的檔案匯入，不必在這裡配對。iOS 18-26 只能走這條路。",
         .pairOpenSettings: "開啟設定",
-        .pairWaiting: "正在等待裝置…",
+        .pairWaiting: "正在等待裝置發起配對…",
+        .vpnTitle: "回環 VPN",
+        .vpnBody: "兩種配對方式都要靠回環 VPN 才能存取裝置自己的開發服務。沒有它，配對可能成功，但之後每一次連線都會失敗。",
+        .vpnRequired: "配對前必須先裝，沒有它什麼都連不上",
+        .vpnGetApp: "取得 LocalDevVPN",
+        .vpnFreeNote: "App Store 免費。已裝 SideStore 的話，它自帶的 WireGuard 回環也能用。",
+        .vpnConnected: "VPN 已連線",
+        .vpnNotConnected: "VPN 未連線",
+        .vpnNoTunnel: "沒找到通道網卡",
+        .vpnDetected: "位址",
+        .vpnOpenApp: "開啟 LocalDevVPN",
+        .vpnRecheck: "重新偵測",
+        .vpnHowTo: "開啟 LocalDevVPN 點「連線」，然後回到這裡。",
+        .vpnLaunchHint: "這個 VPN 只走本機流量，不會有任何資料離開裝置。它只是讓應用程式能存取原本只對本機回環開放的連接埠。",
         .pairShowGuide: "查看步驟",
         .pairHideGuide: "收起步驟",
+        .statusIdle: "未配對",
+        .statusPaired: "已配對",
+        .statusStarting: "正在啟動配對主機…",
+        .statusAdvertising: "正在廣播，現在去開啟設定",
+        .statusAdvertisingDev: "正在廣播 · 設定 › 隱私權與安全性 › 開發者模式",
+        .statusEnterPin: "在設定裡輸入 PIN %@",
+        .statusPairedWith: "已與 %@ 配對",
+        .statusFailed: "配對失敗",
+        .statusEmptyFile: "配對產生的檔案是空的",
+        .statusEmptyFileBody: "裝置配對成功但記錄是空的，請重新批准一次。",
+        .errPairFirst: "請先配對本機。",
+        .errUnreadableFile: "無法讀取 %@。",
+        .phaseConnecting: "正在連線裝置…",
+        .phaseProbing: "正在探測裝置…",
+        .phaseLaunching: "正在啟動 %@…",
+        .phaseCapturing: "正在截圖…",
+        .probeReached: "已連線裝置 %@ · %d 個服務 · appservice=%@ · dvt=%@",
 
         // HUD basics
         .hudSection: "Metal HUD",
@@ -492,10 +622,8 @@ enum L10n {
         .hudMetricTimeout: "臨時指標逾時（秒）",
 
         // HUD launch
-        .launchOptions: "啟動選項",
         .terminateExisting: "啟動前結束已在執行的實例",
         .showOnlyGames: "只看遊戲",
-        .injectedEnvironment: "注入的環境變數",
 
         // Layouts
         .layoutLite: "精簡",

@@ -167,21 +167,34 @@ An unsigned IPA cannot be installed as-is. Pick one:
 
 ### 1. Set up a loopback VPN
 
-Install [LocalDevVPN](https://apps.apple.com/app/localdevvpn/id6475003729) (free),
+> **Do not skip this.** Without a loopback VPN, pairing can appear to succeed and
+> then every connection afterwards fails.
+
+Install [LocalDevVPN](https://apps.apple.com/app/id6755608044) (free),
 open it and connect. Its job is to forward addresses such as `10.7.0.1` to the
-device's own developer-service ports.
+device's own developer-service ports. **Nothing leaves the device.**
 
 If you already run **SideStore**, its bundled WireGuard loopback works too — the
 gateway is also `10.7.0.1`.
 
+The app checks on launch and shows the result on the VPN card: *VPN connected*
+plus the tunnel address it found (for example `10.7.0.2 · utun4`). It re-checks
+whenever the app comes back to the foreground, and **Check again** forces a
+refresh. *No tunnel interface found* means the VPN is not connected, or it is not
+running in loopback mode.
+
 ### 2. Pair
 
-Since iOS 27 an app can act as a "pairable host" and be approved from Settings:
+Since iOS 27 an app can act as a "pairable host" and be approved from Settings.
+**The PIN is only generated after you start pairing from Settings**, so the order
+matters:
 
-1. Open Metal HUD and tap **Start pairing host**;
-2. A 6-digit PIN appears on screen;
-3. Go to **Settings → Privacy & Security → Developer Mode → Pair with MetalHUD**;
-4. Enter the PIN.
+1. Open Metal HUD and tap **Start pairing host**, then keep that screen open;
+2. Go to **Settings → Privacy & Security → Developer Mode → Pair with MetalHUD**;
+3. Only now does iOS ask for a PIN;
+4. Come back to Metal HUD, read the 6 digits and type them into the Settings dialog.
+
+> No PIN on screen after step 1 is expected, not a bug.
 
 Once paired, `metalhud_pairing.plist` is written to the app's Documents folder.
 
