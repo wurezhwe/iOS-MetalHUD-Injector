@@ -54,11 +54,16 @@ enum NetworkStatus {
     // MARK: - VPN state
 
     /// What the loopback VPN currently looks like from inside the app.
+    ///
+    /// Deliberately reports and does not infer: the address of the tunnel
+    /// interface is the *device's* address on the tunnel, never the gateway
+    /// that forwards to RSD. Deriving a gateway from the subnet produced
+    /// `10.7.1.1`/`10.7.1.2` for a device on `10.7.1.x`, while the gateway that
+    /// actually works is the `10.7.0.1` convention - a different range. So no
+    /// gateway is offered here at all.
     struct VPNState {
         /// The address the VPN gave this device, e.g. `10.7.0.2`.
         var tunnelAddress: String?
-        /// The gateway to dial, derived from the tunnel subnet.
-        var gateway: String?
         var interfaceName: String?
         /// True only when a tunnel interface carries a routable IPv4 address.
         var isConnected: Bool { tunnelAddress != nil }
@@ -74,15 +79,15 @@ enum NetworkStatus {
         let tunnels = interfaces().filter {
             isTunnelInterface($0.name) && !$0.ipv4.hasPrefix("127.")
         }
-        // Prefer the familiar 10.7.0.x /10.8.0.x range: SideStore, StikDebug and
-        // LocalDevVPN all use it, and a device may have several utun interfaces.
+        // A device may have several utun interfaces (iCloud Private Relay, a
+        // personal VPN). Prefer the 10.x one, which is what the loopback VPNs
+        // used by sideloading tools allocate.
         let preferred = tunnels.first { $0.ipv4.hasPrefix("10.") } ?? tunnels.first
         guard let iface = preferred else { return .disconnected }
 
         var state = VPNState()
         state.tunnelAddress = iface.ipv4
         state.interfaceName = iface.name
-        state.gateway = addresses(for: iface).first ?? iface.ipv4
         return state
     }
 

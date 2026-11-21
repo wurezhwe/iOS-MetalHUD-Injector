@@ -227,6 +227,12 @@ final class AppModel: ObservableObject {
 
     /// Re-read the interface table. Cheap (one `getifaddrs` sweep) but it does
     /// touch the network stack, so it runs off the main actor.
+    ///
+    /// This is a *report*, not a reconfiguration. An earlier version rewrote
+    /// `gateway` from the detected interface address, which put a wrong guess
+    /// (`10.7.1.2`) ahead of the working default and cost 800 ms of connect
+    /// timeout per dead candidate on every dial. Detection must never change
+    /// the dialling order; the user's gateway field stays authoritative.
     func refreshVPN() {
         guard !vpnCheckInFlight else { return }
         vpnCheckInFlight = true
@@ -236,12 +242,10 @@ final class AppModel: ObservableObject {
             }.value
             vpn = state
             vpnCheckInFlight = false
-            // The detected gateway is a better default than the hard-coded one.
-            if let detected = state.gateway, gateway != detected {
-                LogCenter.shared.append("[app] VPN gateway \(detected) (\(state.interfaceName ?? "?"))")
-                gateway = detected
-                pushHosts()
-            }
+            LogCenter.shared.append(
+                "[app] vpn \(state.isConnected ? "up" : "down")"
+                + (state.tunnelAddress.map { " at \($0) (\(state.interfaceName ?? "?"))" } ?? "")
+            )
         }
     }
 

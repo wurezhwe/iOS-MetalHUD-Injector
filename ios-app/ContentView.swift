@@ -25,11 +25,14 @@ struct ContentView: View {
                     VStack(spacing: 14) {
                         headerCard
                         connectionCard
+                        // The VPN is a prerequisite for every connection, not
+                        // just for pairing, so this card stays put once the
+                        // device is paired.
+                        vpnCard
                         if model.isPaired {
                             hudSettingsCard
                             appsCard
                         } else {
-                            vpnCard
                             pairingCard
                         }
                         consoleCard

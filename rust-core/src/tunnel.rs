@@ -41,7 +41,14 @@ const RSD_PORT: u16 = 49152;
 /// Tunnel service advertised inside the first RSD handshake.
 const TUNNEL_SERVICE: &str = "com.apple.internal.dt.coredevice.untrusted.tunnelservice";
 /// How long a single candidate host may take to accept a TCP connection.
+///
+/// RSD lives on a loopback VPN, so a host that is going to answer does so
+/// essentially immediately. The only way this timeout is ever reached is a host
+/// that is unreachable, and waiting the full second for each of them in turn is
+/// what made a miss on the first candidate feel like a hang.
 const DIAL_TIMEOUT: Duration = Duration::from_millis(800);
+/// TCP reachability probes run in parallel, so they use a tighter budget.
+const PROBE_TIMEOUT: Duration = Duration::from_millis(350);
 /// Hosts are reconsidered this many times before we give up.
 const DIAL_ROUNDS: u32 = 4;
 
@@ -81,6 +88,11 @@ fn store_route(route: CachedRoute) {
 }
 
 /// Hosts to try, best first. Loopback is filtered out on purpose (see module doc).
+///
+/// Order matters a lot: every unreachable host in front of the real gateway
+/// costs a full connect timeout. The cached route wins, then the addresses the
+/// app derived from the live tunnel interface, and finally the well-known
+/// LocalDevVPN / SideStore defaults.
 fn candidates() -> Vec<IpAddr> {
     fn push(out: &mut Vec<IpAddr>, ip: IpAddr) {
         if !ip.is_loopback() && !out.contains(&ip) {
@@ -104,6 +116,54 @@ fn candidates() -> Vec<IpAddr> {
         }
     }
     out
+}
+
+/// Drop hosts that do not even accept a TCP connection, keeping the original
+/// order. Probing runs concurrently, so rejecting four dead addresses costs one
+/// probe timeout instead of four of them in sequence.
+async fn reachable_first(hosts: Vec<IpAddr>) -> Vec<IpAddr> {
+    if hosts.len() <= 1 {
+        return hosts;
+    }
+
+    // tokio's JoinSet gives concurrency without pulling in the futures crate.
+    let mut set = tokio::task::JoinSet::new();
+    for (index, host) in hosts.iter().copied().enumerate() {
+        set.spawn(async move {
+            let addr = SocketAddr::new(host, RSD_PORT);
+            let ok = matches!(
+                tokio::time::timeout(PROBE_TIMEOUT, TcpStream::connect(addr)).await,
+                Ok(Ok(_))
+            );
+            (index, ok)
+        });
+    }
+
+    let mut alive = vec![false; hosts.len()];
+    let mut any = false;
+    while let Some(joined) = set.join_next().await {
+        if let Ok((index, ok)) = joined {
+            alive[index] = ok;
+            any |= ok;
+        }
+    }
+
+    if !any {
+        // Nothing answered the probe. Keep the full list: a slow gateway may
+        // simply need longer than PROBE_TIMEOUT.
+        return hosts;
+    }
+
+    let mut ordered: Vec<IpAddr> = hosts
+        .iter()
+        .zip(&alive)
+        .filter(|(_, ok)| **ok)
+        .map(|(ip, _)| *ip)
+        .collect();
+    // Keep the unreachable ones at the end as a last resort rather than
+    // dropping them, so behaviour degrades to the old list if the probe lies.
+    ordered.extend(hosts.iter().zip(&alive).filter(|(_, ok)| !**ok).map(|(ip, _)| *ip));
+    ordered
 }
 
 /// A live connection to the device's RSD, plus the userspace TCP adapter behind
@@ -154,6 +214,10 @@ pub async fn connect(pairing_path: &str) -> Result<DeviceLink, String> {
     if hosts.is_empty() {
         return Err("no candidate host addresses; set the device IP first".into());
     }
+    // Cheap parallel reachability pass first: the whole point is to avoid
+    // paying a serial connect timeout for every stale candidate in front of
+    // the gateway that actually works.
+    let hosts = reachable_first(hosts).await;
     LOG.log(format!(
         "trying {} host(s): {}",
         hosts.len(),
@@ -310,6 +374,8 @@ where
     LOG.log(format!("device opened tunnel port {tunnel_port}"));
 
     // createListener names a port but not a host, so sweep the candidates.
+    // The sweep starts from the host that just completed pair-verify, which is
+    // the one almost certain to accept, so the common path is a single attempt.
     let mut last = String::from("no host answered on the tunnel port");
     for round in 1..=DIAL_ROUNDS {
         let sweep_hosts: Vec<IpAddr> = {
