@@ -92,25 +92,23 @@ enum NetworkStatus {
     }
 
     /// Every address worth dialling for the RSD listener, best guess first.
+    ///
+    /// This list used to be padded with guesses derived from each interface's
+    /// subnet (network+1, network+2) plus the device's own addresses. They never
+    /// worked: the device sits on e.g. `10.7.1.3` while the gateway that
+    /// forwards to RSD is `10.7.0.1`, a different range, and dialling the
+    /// device's own LAN address is rejected by pair-verify. Every wrong entry
+    /// cost a full connect timeout, so a dial that started on any of them took
+    /// seconds. Only the field's value and the known conventions remain; a VPN
+    /// with an unusual gateway is one the user types in.
     static func tunnelCandidates(preferred: String) -> [String] {
         var out: [String] = []
         let trimmed = preferred.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
+        if !trimmed.isEmpty, !out.contains(host(trimmed)) {
             out.append(host(trimmed))
         }
 
-        let ifaces = interfaces().filter { !$0.ipv4.hasPrefix("127.") }
-        // Tunnel interfaces first: the VPN gateway lives on one of those.
-        let ordered = ifaces.filter { isTunnelInterface($0.name) }
-            + ifaces.filter { !isTunnelInterface($0.name) }
-
-        for iface in ordered {
-            for candidate in addresses(for: iface) where !out.contains(candidate) {
-                out.append(candidate)
-            }
-        }
-
-        // WireGuard/LocalDevVPN conventions, in case the interface is not up yet.
+        // WireGuard/LocalDevVPN/StikDebug conventions.
         for fallback in ["10.7.0.1", "10.7.0.2", "10.7.0.3"]
         where !out.contains(fallback) {
             out.append(fallback)
@@ -118,39 +116,9 @@ enum NetworkStatus {
         return out
     }
 
-    /// The gateway of a /24-ish tunnel is usually the first host in the subnet,
-    /// and the device itself is often the second. Offer both.
-    private static func addresses(for iface: Interface) -> [String] {
-        guard let local = ipv4Value(iface.ipv4) else { return [] }
-        var out: [String] = []
-        if isTunnelInterface(iface.name) {
-            let mask = iface.netmask.flatMap(ipv4Value) ?? 0xFFFF_FF00
-            let network = local & mask
-            out.append(describe(network &+ 1))
-            out.append(describe(network &+ 2))
-        }
-        out.append(iface.ipv4)
-        return out
-    }
-
     static func host(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let slash = trimmed.firstIndex(of: "/") else { return trimmed }
         return String(trimmed[..<slash]).trimmingCharacters(in: .whitespaces)
-    }
-
-    private static func describe(_ value: UInt32) -> String {
-        "\((value >> 24) & 0xFF).\((value >> 16) & 0xFF).\((value >> 8) & 0xFF).\(value & 0xFF)"
-    }
-
-    private static func ipv4Value(_ ip: String) -> UInt32? {
-        let octets = ip.split(separator: ".", omittingEmptySubsequences: false)
-        guard octets.count == 4 else { return nil }
-        var value: UInt32 = 0
-        for octet in octets {
-            guard let byte = UInt8(octet) else { return nil }
-            value = (value << 8) | UInt32(byte)
-        }
-        return value
     }
 }
